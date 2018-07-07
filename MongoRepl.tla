@@ -221,6 +221,21 @@ GetEntries(i, j) ==
                  /\ log' = [log EXCEPT ![i] = newLog]
     /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
 
+\* Dumb (and probably wrong approach). Calculate the commit point purely based on
+\* the values in your current 'appliedEntry' vector. Choose the highest index
+\* that is agreed upon by a majority. We are only allowed to choose a quorum
+\* whose last applied entries have the same term.
+
+\*AdvanceCommitPoint(i) == 
+\*    LET quorum == {Q \in SUBSET Server :
+\*        /\ Q \in Quorum 
+\*        /\ \A s, t \in Q : s # t => 
+\*           appliedEntry[i][s][1] = appliedEntry[i][s][2]} IN
+\*        \* There can only be one or zero quorums.
+\*        IF quorum # {} 
+\*           THEN commitIndex' = [commitIndex EXCEPT ![i] = 
+\*           ELSE
+
 \* Node i updates node j with its latest progress.
 UpdatePosition(i, j) == 
     /\ Len(log[i]) > 0
@@ -288,7 +303,7 @@ Next ==
        \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)
        \/ \E s, t \in Server : GetEntries(s, t)
        \/ \E s, t \in Server : RollbackEntries(s, t)
-\*       \/ \E s, t \in Server : UpdatePosition(s, t)
+       \/ \E s, t \in Server : UpdatePosition(s, t)
     /\ HistNext
 
 Spec == Init /\ [][Next]_vars
@@ -307,6 +322,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Jul 06 22:55:52 EDT 2018 by williamschultz
+\* Last modified Fri Jul 06 23:27:06 EDT 2018 by williamschultz
 \* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
