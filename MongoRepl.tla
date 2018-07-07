@@ -57,7 +57,7 @@ VARIABLE votedFor
 \* every other node has applied to in its log. Maps from server id to <<index, term>> tuple.
 VARIABLE appliedEntry
 
-serverVars == <<currentTerm, state, votedFor, appliedEntry>>
+serverVars == <<currentTerm, state, votedFor>>
 
 \* A Sequence of log entries. The index into this sequence is the index of the
 \* log entry. Unfortunately, the Sequence module defines Head(s) as the entry
@@ -83,7 +83,7 @@ candidateVars == <<votesResponded, votesGranted, voterLog>>
 
 leaderVars == <<elections>>
 
-vars == <<messages, allLogs, serverVars, candidateVars, leaderVars, logVars, immediatelyCommitted>>
+vars == <<messages, allLogs, serverVars, candidateVars, leaderVars, logVars, appliedEntry, immediatelyCommitted>>
 
 \* The set of all quorums. This just calculates simple majorities, but the only
 \* important property is that every quorum overlaps with every other.
@@ -205,7 +205,14 @@ GetEntries(i, j) ==
              log' = [log EXCEPT ![i] = Append(log[i], newEntry)]
     /\ allLogs' = allLogs \cup {log'[i]}
 \*    /\ immediatelyCommitted
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, immediatelyCommitted>>
+    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry, immediatelyCommitted>>
+
+\* Node i updates node j with its latest progress.
+UpdatePosition(i, j) == 
+    /\ Len(log[i]) > 0
+    /\ LET lastEntry == <<Len(log[i]), LastTerm(log[i])>> IN
+           appliedEntry' = [appliedEntry EXCEPT ![j][i] = lastEntry] 
+    /\ UNCHANGED <<messages, serverVars, candidateVars, logVars, allLogs, leaderVars, commitIndex, immediatelyCommitted>>           
     
 \* Node i times out and automatically becomes a leader, if eligible.
 BecomeLeader(i) == 
@@ -235,7 +242,7 @@ ClientRequest(i, v) ==
        newLog == Append(log[i], entry) IN
        /\ log' = [log EXCEPT ![i] = newLog]
        /\ allLogs' = allLogs \cup {newLog}
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, immediatelyCommitted>>
+    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry, immediatelyCommitted>>
 
     
 InitHistoryVars == /\ elections = {}
@@ -263,6 +270,7 @@ Next ==
     \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)
     \/ \E s, t \in Server : GetEntries(s, t)
     \/ \E s, t \in Server : RollbackEntries(s, t)
+    \/ \E s, t \in Server : UpdatePosition(s, t)
 
 Spec == Init /\ [][Next]_vars
 
@@ -280,6 +288,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Jul 06 21:14:38 EDT 2018 by williamschultz
+\* Last modified Fri Jul 06 21:26:28 EDT 2018 by williamschultz
 \* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
