@@ -127,6 +127,13 @@ Max(s) == CHOOSE x \in s : \A y \in s : x >= y
 \* Correctness Invariants
 \*
 
+\* The set of all log entries for a given log i.e. the set of all <<index, term>>
+\* pairs that appear in the log.
+LogEntries(xlog) == {<<i, xlog[i].term>> : i \in DOMAIN xlog}
+
+\* The set of all log entries (<<index, term>>) that appear in any log in the given log set.
+AllLogEntries(logSet) == UNION {LogEntries(l) : l \in logSet}      
+
 ElectionSafety == \A e1, e2 \in elections: 
                     e1.eterm = e2.eterm => e1.eleader = e2.eleader
                     
@@ -141,16 +148,17 @@ LogMatching ==
         xlog[i].term = ylog[i].term => 
         SubSeq(xlog, 1, i) = SubSeq(ylog, 1, i)
 
+\* Determines wheter an <<index, term>> entry is immediately committed, based on the
+\* current state.
 ImmediatelyCommitted(index, term) == 
     \E Q \in Quorum :
         \A q \in Q : 
             /\ currentTerm[q] = term 
             /\ \E i \in DOMAIN log[q] : i=index /\ log[q][i].term = term
 
-\* The set of all currently 'immediately committed' log entries.
-\* AllImmediatelyCommitted == 
-\*     LET maxIndex == Max({Len(log[s]) : s \in Server}) IN
-        
+\* The set of all 'immediately committed' log entries in the given set of logs.
+AllImmediatelyCommitted(logSet) == {e \in AllLogEntries(logSet) : ImmediatelyCommitted(e[1], e[2])}
+
 
 -----
 
@@ -184,8 +192,7 @@ RollbackEntries(i, j) ==
                   THEN [log EXCEPT ![i] = <<>>]
                   \* Erase all log entries after the newest common entry.
                   ELSE log' = [log EXCEPT ![i] = SubSeq(log[i], 1, Max(commonIndices))] 
-    /\ allLogs' = allLogs \cup {log'[i]}
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, immediatelyCommitted>>
+    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex>>
                   
 
 \* Node i gets a new log entry from node j.
@@ -201,18 +208,17 @@ GetEntries(i, j) ==
        \* log. This is the essential 'log consistency check'.
        \/ /\ Len(log[i]) > 0
           /\ log[j][Len(log[i])] = log[i][Len(log[i])]
-          /\ LET newEntry == log[j][Len(log[i]) + 1] IN
-             log' = [log EXCEPT ![i] = Append(log[i], newEntry)]
-    /\ allLogs' = allLogs \cup {log'[i]}
-\*    /\ immediatelyCommitted
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry, immediatelyCommitted>>
+          /\ LET newEntry == log[j][Len(log[i]) + 1] 
+                 newLog   == Append(log[i], newEntry) IN
+                 /\ log' = [log EXCEPT ![i] = newLog]
+    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
 
 \* Node i updates node j with its latest progress.
 UpdatePosition(i, j) == 
     /\ Len(log[i]) > 0
     /\ LET lastEntry == <<Len(log[i]), LastTerm(log[i])>> IN
            appliedEntry' = [appliedEntry EXCEPT ![j][i] = lastEntry] 
-    /\ UNCHANGED <<messages, serverVars, candidateVars, logVars, allLogs, leaderVars, commitIndex, immediatelyCommitted>>           
+    /\ UNCHANGED <<messages, serverVars, candidateVars, logVars, leaderVars, commitIndex>>           
     
 \* Node i times out and automatically becomes a leader, if eligible.
 BecomeLeader(i) == 
@@ -232,7 +238,7 @@ BecomeLeader(i) ==
                             evotes    |-> voters,
                             evoterLog |-> voterLog[i]] IN
            elections'  = elections \cup {election}        
-        /\ UNCHANGED <<messages, logVars, candidateVars, allLogs, appliedEntry, immediatelyCommitted>>
+        /\ UNCHANGED <<messages, logVars, candidateVars, appliedEntry>>
 
 \* Node i, which must be a primary, handles a new client request and places the entry in its log.
 ClientRequest(i, v) == 
@@ -240,14 +246,14 @@ ClientRequest(i, v) ==
     /\ LET entry == [term  |-> currentTerm[i],
                      value |-> v]
        newLog == Append(log[i], entry) IN
-       /\ log' = [log EXCEPT ![i] = newLog]
-       /\ allLogs' = allLogs \cup {newLog}
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry, immediatelyCommitted>>
+       log' = [log EXCEPT ![i] = newLog]
+    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
 
     
 InitHistoryVars == /\ elections = {}
-                   /\ allLogs   = {}
+                   /\ allLogs   = {log[i] : i \in Server}
                    /\ voterLog  = [i \in Server |-> [j \in {} |-> <<>>]]
+                   /\ immediatelyCommitted = {}
 InitServerVars == /\ currentTerm = [i \in Server |-> 1]
                   /\ state       = [i \in Server |-> Secondary]
                   /\ votedFor    = [i \in Server |-> Nil]
@@ -259,18 +265,23 @@ InitCandidateVars == /\ votesResponded = [i \in Server |-> {}]
 InitLogVars == /\ log          = [i \in Server |-> << >>]
                /\ commitIndex  = [i \in Server |-> 0]
 Init == /\ messages = [m \in {} |-> 0]
-        /\ immediatelyCommitted = {}
+        /\ InitLogVars
         /\ InitHistoryVars
         /\ InitServerVars
         /\ InitCandidateVars
-        /\ InitLogVars
-        
+      
+\* Next state predicate for history and proof variables.  
+HistNext == 
+    /\ allLogs' = allLogs \cup {log[i] : i \in Server}
+    /\ immediatelyCommitted' = immediatelyCommitted \cup AllImmediatelyCommitted(allLogs)'
+           
 Next == 
-    \/ \E s \in Server : BecomeLeader(s)
-    \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)
-    \/ \E s, t \in Server : GetEntries(s, t)
-    \/ \E s, t \in Server : RollbackEntries(s, t)
-    \/ \E s, t \in Server : UpdatePosition(s, t)
+    /\ \/ \E s \in Server : BecomeLeader(s)
+       \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)
+       \/ \E s, t \in Server : GetEntries(s, t)
+       \/ \E s, t \in Server : RollbackEntries(s, t)
+       \/ \E s, t \in Server : UpdatePosition(s, t)
+    /\ HistNext
 
 Spec == Init /\ [][Next]_vars
 
@@ -288,6 +299,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Jul 06 21:26:28 EDT 2018 by williamschultz
+\* Last modified Fri Jul 06 22:37:38 EDT 2018 by williamschultz
 \* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
