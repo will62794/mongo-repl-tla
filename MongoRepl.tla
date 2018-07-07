@@ -52,7 +52,12 @@ VARIABLE state
 \* The candidate the server voted for in its current term, or
 \* Nil if it hasn't voted for any.
 VARIABLE votedFor
-serverVars == <<currentTerm, state, votedFor>>
+
+\* A function maintained on each server that contains a local view of how far each node think
+\* every other node has applied to in its log. Maps from server id to <<index, term>> tuple.
+VARIABLE appliedEntry
+
+serverVars == <<currentTerm, state, votedFor, appliedEntry>>
 
 \* A Sequence of log entries. The index into this sequence is the index of the
 \* log entry. Unfortunately, the Sequence module defines Head(s) as the entry
@@ -76,13 +81,7 @@ VARIABLE votesGranted
 VARIABLE voterLog
 candidateVars == <<votesResponded, votesGranted, voterLog>>
 
-\* The following variables are used only on leaders:
-\* The next entry to send to each follower.
-\*VARIABLE nextIndex
-\* The latest entry that each follower has acknowledged is the same as the
-\* leader's. This is used to calculate commitIndex on the leader.
-VARIABLE matchIndex
-leaderVars == <<matchIndex, elections>>
+leaderVars == <<elections>>
 
 vars == <<messages, allLogs, serverVars, candidateVars, leaderVars, logVars, immediatelyCommitted>>
 
@@ -226,7 +225,7 @@ BecomeLeader(i) ==
                             evotes    |-> voters,
                             evoterLog |-> voterLog[i]] IN
            elections'  = elections \cup {election}        
-        /\ UNCHANGED <<messages, logVars, candidateVars, allLogs, matchIndex, immediatelyCommitted>>
+        /\ UNCHANGED <<messages, logVars, candidateVars, allLogs, appliedEntry, immediatelyCommitted>>
 
 \* Node i, which must be a primary, handles a new client request and places the entry in its log.
 ClientRequest(i, v) == 
@@ -245,11 +244,11 @@ InitHistoryVars == /\ elections = {}
 InitServerVars == /\ currentTerm = [i \in Server |-> 1]
                   /\ state       = [i \in Server |-> Secondary]
                   /\ votedFor    = [i \in Server |-> Nil]
+                  /\ appliedEntry = [i \in Server |-> [j \in Server |-> Nil]]
 InitCandidateVars == /\ votesResponded = [i \in Server |-> {}]
                      /\ votesGranted   = [i \in Server |-> {}]
                      
 
-InitLeaderVars == /\ matchIndex = [i \in Server |-> [j \in Server |-> 0]]
 InitLogVars == /\ log          = [i \in Server |-> << >>]
                /\ commitIndex  = [i \in Server |-> 0]
 Init == /\ messages = [m \in {} |-> 0]
@@ -257,7 +256,6 @@ Init == /\ messages = [m \in {} |-> 0]
         /\ InitHistoryVars
         /\ InitServerVars
         /\ InitCandidateVars
-        /\ InitLeaderVars
         /\ InitLogVars
         
 Next == 
@@ -282,6 +280,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jul 04 18:22:48 EDT 2018 by williamschultz
+\* Last modified Fri Jul 06 21:14:38 EDT 2018 by williamschultz
 \* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
