@@ -159,6 +159,15 @@ ImmediatelyCommitted(index, term) ==
 \* The set of all 'immediately committed' log entries in the given set of logs.
 AllImmediatelyCommitted(logSet) == {e \in AllLogEntries(logSet) : ImmediatelyCommitted(e[1], e[2])}
 
+\* Is <<index, term>> in the given log.
+EntryInLog(xlog, index, term) == \E i \in DOMAIN xlog : <<index, term>> = <<i, xlog[i].term>> 
+
+\* If an entry was immediately committed at term T, then it must appear in the logs of all 
+\* leaders of higher terms.
+LeaderCompleteness == 
+ \A <<index,term>> \in immediatelyCommitted :
+ \A election \in elections:
+    election.eterm > term => EntryInLog(election.elog, index, term)
 
 -----
 
@@ -280,7 +289,7 @@ Next ==
        \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)
        \/ \E s, t \in Server : GetEntries(s, t)
        \/ \E s, t \in Server : RollbackEntries(s, t)
-       \/ \E s, t \in Server : UpdatePosition(s, t)
+\*       \/ \E s, t \in Server : UpdatePosition(s, t)
     /\ HistNext
 
 Spec == Init /\ [][Next]_vars
@@ -299,6 +308,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Jul 06 22:37:38 EDT 2018 by williamschultz
+\* Last modified Fri Jul 06 22:48:30 EDT 2018 by williamschultz
 \* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
