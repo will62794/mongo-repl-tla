@@ -1,5 +1,7 @@
 ----------------------------- MODULE MongoRepl -----------------------------
 
+\* A high level specification of the MongoDB replication protocol.
+
 EXTENDS Naturals, FiniteSets, Sequences, TLC
 
 \* The set of server IDs
@@ -26,15 +28,13 @@ CONSTANTS RequestVoteRequest, RequestVoteResponse,
 VARIABLE messages
 
 \* A history variable used in the proof. This would not be present in an
-\* implementation.
-\* Keeps track of successful elections, including the initial logs of the
+\* implementation. Keeps track of successful elections, including the initial logs of the
 \* leader and voters' logs. Set of functions containing various things about
 \* successful elections (see BecomeLeader).
 VARIABLE elections
 
 \* A history variable used in the proof. This would not be present in an
-\* implementation.
-\* Keeps track of every log ever in the system (set of logs).
+\* implementation. Keeps track of every log ever in the system (set of logs).
 VARIABLE allLogs
 
 \* Set of all immediately committed <<index, term>> log entry pairs.
@@ -59,25 +59,27 @@ VARIABLE appliedEntry
 
 serverVars == <<currentTerm, state, votedFor>>
 
-\* A Sequence of log entries. The index into this sequence is the index of the
-\* log entry. Unfortunately, the Sequence module defines Head(s) as the entry
-\* with index 1, so be careful not to use that!
+\* A sequence of log entries. The index into this sequence is the index of the
+\* log entry
 VARIABLE log
+
 \* The index of the latest entry in the log the state machine may apply.
 VARIABLE commitIndex
 logVars == <<log, commitIndex>>
 
 \* The following variables are used only on candidates:
+
 \* The set of servers from which the candidate has received a RequestVote
 \* response in its currentTerm.
 VARIABLE votesResponded
+
 \* The set of servers from which the candidate has received a vote in its
 \* currentTerm.
 VARIABLE votesGranted
+
 \* A history variable used in the proof. This would not be present in an
-\* implementation.
-\* Function from each server that voted for this candidate in its currentTerm
-\* to that voter's log.
+\* implementation. It is a function from each server that voted for this candidate 
+\* in its currentTerm to that voter's log.
 VARIABLE voterLog
 candidateVars == <<votesResponded, votesGranted, voterLog>>
 
@@ -136,9 +138,6 @@ AllLogEntries(logSet) == UNION {LogEntries(l) : l \in logSet}
 
 ElectionSafety == \A e1, e2 \in elections: 
                     e1.eterm = e2.eterm => e1.eleader = e2.eleader
-                    
-\*LeaderAppendOnly == \A s \in Server : 
-\*                        [][state[s] = Primary => Len(log'[s]) > Len(log[s])]_vars
 
 \* An <<index, term>> pair should uniquely identify a log prefix.
 LogMatching == 
@@ -308,6 +307,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Jul 06 22:48:30 EDT 2018 by williamschultz
+\* Last modified Fri Jul 06 22:55:52 EDT 2018 by williamschultz
 \* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
