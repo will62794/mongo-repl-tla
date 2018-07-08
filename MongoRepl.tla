@@ -2,7 +2,7 @@
 
 \* A high level specification of the MongoDB replication protocol.
 
-EXTENDS Naturals, FiniteSets, Sequences, TLC
+EXTENDS Naturals, Integers, FiniteSets, Sequences, TLC
 
 \* The set of server IDs
 CONSTANTS Server
@@ -147,7 +147,7 @@ LogMatching ==
         xlog[i].term = ylog[i].term => 
         SubSeq(xlog, 1, i) = SubSeq(ylog, 1, i)
 
-\* Determines wheter an <<index, term>> entry is immediately committed, based on the
+\* Determines whether an <<index, term>> entry is immediately committed, based on the
 \* current state.
 ImmediatelyCommitted(index, term) == 
     \E Q \in Quorum :
@@ -221,20 +221,30 @@ GetEntries(i, j) ==
                  /\ log' = [log EXCEPT ![i] = newLog]
     /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
 
-\* Dumb (and probably wrong approach). Calculate the commit point purely based on
+
+QuorumAgreeInSameTerm(appliedEntryVal) == 
+    LET quorums == {Q \in Quorum :
+                    \* Every applied entry in quorum has the same term.
+                    /\ \A s, t \in Q : 
+                       /\ appliedEntryVal[s][2] >= 0 /\ appliedEntryVal[t][2] >= 0
+                       /\ s # t => appliedEntryVal[s][2] = appliedEntryVal[t][2]} IN
+        IF quorums = {} THEN Nil ELSE CHOOSE x \in quorums : TRUE
+
+\* Naive (and quite possibly incorrect) approach. Calculate the commit point purely based on
 \* the values in your current 'appliedEntry' vector. Choose the highest index
 \* that is agreed upon by a majority. We are only allowed to choose a quorum
 \* whose last applied entries have the same term.
-
-\*AdvanceCommitPoint(i) == 
-\*    LET quorum == {Q \in SUBSET Server :
-\*        /\ Q \in Quorum 
-\*        /\ \A s, t \in Q : s # t => 
-\*           appliedEntry[i][s][1] = appliedEntry[i][s][2]} IN
-\*        \* There can only be one or zero quorums.
-\*        IF quorum # {} 
-\*           THEN commitIndex' = [commitIndex EXCEPT ![i] = 
-\*           ELSE
+AdvanceCommitPoint(i) == 
+    LET quorumAgree == QuorumAgreeInSameTerm(appliedEntry[i]) IN
+        /\ quorumAgree # Nil
+        \* The term of the entries in the quorum must match your current term.
+        /\ LET serverInQuorum == CHOOSE s \in quorumAgree : TRUE
+               termOfQuorum == appliedEntry[i][serverInQuorum][2] IN
+               termOfQuorum = currentTerm[i]
+        \* Choose the minimum index of the applied entries in the quorum.
+        /\ LET newCommitIndex == Min({appliedEntry[i][s][1] : s \in quorumAgree}) IN
+           commitIndex' = [commitIndex EXCEPT ![i] = newCommitIndex]
+    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, log, appliedEntry>>           
 
 \* Node i updates node j with its latest progress.
 UpdatePosition(i, j) == 
@@ -280,7 +290,7 @@ InitHistoryVars == /\ elections = {}
 InitServerVars == /\ currentTerm = [i \in Server |-> 1]
                   /\ state       = [i \in Server |-> Secondary]
                   /\ votedFor    = [i \in Server |-> Nil]
-                  /\ appliedEntry = [i \in Server |-> [j \in Server |-> Nil]]
+                  /\ appliedEntry = [i \in Server |-> [j \in Server |-> <<-1,-1>>]]
 InitCandidateVars == /\ votesResponded = [i \in Server |-> {}]
                      /\ votesGranted   = [i \in Server |-> {}]
                      
@@ -304,6 +314,7 @@ Next ==
        \/ \E s, t \in Server : GetEntries(s, t)
        \/ \E s, t \in Server : RollbackEntries(s, t)
        \/ \E s, t \in Server : UpdatePosition(s, t)
+       \/ \E s \in Server : AdvanceCommitPoint(s)
     /\ HistNext
 
 Spec == Init /\ [][Next]_vars
@@ -322,6 +333,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Jul 06 23:27:06 EDT 2018 by williamschultz
+\* Last modified Sat Jul 07 22:26:34 EDT 2018 by williamschultz
 \* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
