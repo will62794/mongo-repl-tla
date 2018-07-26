@@ -240,8 +240,10 @@ GetEntries(i, j) ==
     /\ Len(log[j]) > Len(log[i])
        \* log[i] is empty.
     /\ \/ /\ Len(log[i]) = 0
-          /\ LET newEntry == log[j][1] IN 
-             log' = [log EXCEPT ![i] = Append(log[i], newEntry)]
+          /\ LET newEntry == log[j][1]
+                 newLog   == Append(log[i], newEntry) IN
+             /\ log' = [log EXCEPT ![i] = newLog]
+             /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
        \* log[i] is non-empty. In this case, the entry at the last
        \* index of node i's log must match the entry at the same index in node j's
        \* log. This is the essential 'log consistency check'.
@@ -250,15 +252,17 @@ GetEntries(i, j) ==
           /\ LET newEntry == log[j][Len(log[i]) + 1] 
                  newLog   == Append(log[i], newEntry) IN
                  /\ log' = [log EXCEPT ![i] = newLog]
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
+                 /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
+    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex>>
 
 
 QuorumAgreeInSameTerm(appliedEntryVal) == 
     LET quorums == {Q \in Quorum :
-                    \* Every applied entry in quorum has the same term.
+                    \* Make sure all nodes in quorum have actually applied some entries.
+                    /\ \A s \in Q : appliedEntryVal[s][1] > 0
+                    \* Make sure every applied entry in quorum has the same term.
                     /\ \A s, t \in Q : 
-                       /\ appliedEntryVal[s][2] >= 0 /\ appliedEntryVal[t][2] >= 0
-                       /\ s # t => appliedEntryVal[s][2] = appliedEntryVal[t][2]} IN
+                       s # t => appliedEntryVal[s][2] = appliedEntryVal[t][2]} IN
         IF quorums = {} THEN Nil ELSE CHOOSE x \in quorums : TRUE
 
 \* Naive (and quite possibly incorrect) approach. Calculate the commit point purely based on
@@ -268,7 +272,7 @@ QuorumAgreeInSameTerm(appliedEntryVal) ==
 AdvanceCommitPoint(i) == 
     LET quorumAgree == QuorumAgreeInSameTerm(appliedEntry[i]) IN
         /\ quorumAgree # Nil
-        \* The term of the entries in the quorum must match your current term.
+        \* The term of the entries in the quorum must match our current term.
         /\ LET serverInQuorum == CHOOSE s \in quorumAgree : TRUE
                termOfQuorum == appliedEntry[i][serverInQuorum][2] IN
                termOfQuorum = currentTerm[i]
@@ -310,8 +314,9 @@ ClientRequest(i, v) ==
     /\ LET entry == [term  |-> currentTerm[i],
                      value |-> v]
        newLog == Append(log[i], entry) IN
-       log' = [log EXCEPT ![i] = newLog]
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
+       /\ log' = [log EXCEPT ![i] = newLog]
+       /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), entry.term>>]
+    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex>>
 
     
 InitHistoryVars == 
@@ -351,8 +356,8 @@ Next ==
        \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)
        \/ \E s, t \in Server : GetEntries(s, t)
        \/ \E s, t \in Server : RollbackEntries(s, t)
-\*       \/ \E s, t \in Server : UpdatePosition(s, t)
-\*       \/ \E s \in Server : AdvanceCommitPoint(s)
+       \/ \E s, t \in Server : UpdatePosition(s, t)
+       \/ \E s \in Server : AdvanceCommitPoint(s)
     /\ HistNext
 
 Spec == Init /\ [][Next]_vars
@@ -371,6 +376,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jul 25 22:42:45 EDT 2018 by williamschultz
+\* Last modified Wed Jul 25 23:11:29 EDT 2018 by williamschultz
 \* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
