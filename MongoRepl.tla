@@ -190,25 +190,45 @@ CanVoteFor(i, j) ==
 (******** Main Actions *******)
 (*****************************)
 
-\* Node j removes entries based against the log of node i.
-RollbackEntries(i, j) == 
-    /\ Len(log[i]) > 0 
-    /\ Len(log[j]) > 0
+\* Is it possible for log 'lj' to roll back based on the log 'li'. If this is true, it implies that
+\* log 'lj' should remove entries to become a prefix of 'li'.
+CanRollback(li, lj) == 
+    /\ Len(li) > 0 
+    /\ Len(lj) > 0
     \* The terms of the last entries of each log do not match. The term of node i's last 
     \* log entry is greater than that of node j's.
-    /\ log[i][Len(log[i])].term > log[j][Len(log[j])].term
-    /\ LET commonIndices == {k \in DOMAIN log[i] : 
-                                /\ k <= Len(log[j])
-                                /\ log[i][k] = log[j][k]} IN
-           log' = IF commonIndices = {} 
-                  \* If there is no common entry between log 'i' and
-                  \* log 'j', then it means that the all entries of log 'j'
-                  \* are divergent, and so we erase its entire log.
-                  THEN [log EXCEPT ![j] = <<>>]
-                  \* Erase all log entries after the newest common entry.
-                  ELSE [log EXCEPT ![j] = SubSeq(log[i], 1, Max(commonIndices))] 
+    /\ li[Len(li)].term > lj[Len(lj)].term
+
+\* Returns the highest common index between two divergent logs, 'li' and 'lj'. 
+\* If there is no common index between the logs, returns 0.
+RollbackCommonPoint(li, lj) == 
+    LET commonIndices == {k \in DOMAIN li : 
+                            /\ k <= Len(lj)
+                            /\ li[k] = lj[k]} IN
+        IF commonIndices = {} THEN 0 ELSE Max(commonIndices)
+    
+
+\* Node j removes entries based against the log of node i.
+RollbackEntries(i, j) == 
+    /\ CanRollback(log[i], log[j])
+    /\ LET commonPoint == RollbackCommonPoint(log[i], log[j]) IN
+           \* If there is no common entry between log 'i' and
+           \* log 'j', then it means that the all entries of log 'j'
+           \* are divergent, and so we erase its entire log. Otherwise
+           \* we erase all log entries after the newest common entry. Note that 
+           \* if the commonPoint is '0' then SubSeq(log[i], 1, 0) will evaluate
+           \* to <<>>, the empty sequence.
+           log' = [log EXCEPT ![j] = SubSeq(log[i], 1, commonPoint)] 
     /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
-                  
+    
+\* This property asserts that only uncommitted entries will ever be rolled back.
+RollbackSafety == 
+    \E i,j \in Server : CanRollback(log[i], log[j]) =>
+        LET commonPoint == RollbackCommonPoint(log[i], log[j])
+            entriesToRollback == SubSeq(log[j], commonPoint + 1, Len(log[j])) IN
+            \* The entries being rolled back should NOT be committed.
+            entriesToRollback \cap immediatelyCommitted = {}
+                
 
 \* Node i gets a new log entry from node j.
 GetEntries(i, j) == 
@@ -340,6 +360,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jul 25 21:55:29 EDT 2018 by williamschultz
+\* Last modified Wed Jul 25 22:33:22 EDT 2018 by williamschultz
 \* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
