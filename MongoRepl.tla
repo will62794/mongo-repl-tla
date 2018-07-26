@@ -310,25 +310,32 @@ ClientRequest(i, v) ==
     /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
 
     
-InitHistoryVars == /\ elections = {}
-                   /\ allLogs   = {log[i] : i \in Server}
-                   /\ voterLog  = [i \in Server |-> [j \in {} |-> <<>>]]
-                   /\ immediatelyCommitted = {}
-InitServerVars == /\ currentTerm = [i \in Server |-> 1]
-                  /\ state       = [i \in Server |-> Secondary]
-                  /\ votedFor    = [i \in Server |-> Nil]
-                  /\ appliedEntry = [i \in Server |-> [j \in Server |-> <<-1,-1>>]]
-InitCandidateVars == /\ votesResponded = [i \in Server |-> {}]
-                     /\ votesGranted   = [i \in Server |-> {}]
-                     
+InitHistoryVars == 
+    /\ elections = {}
+    /\ allLogs   = {log[i] : i \in Server}
+    /\ voterLog  = [i \in Server |-> [j \in {} |-> <<>>]]
+    /\ immediatelyCommitted = {}
+    
+InitServerVars == 
+    /\ currentTerm = [i \in Server |-> 1]
+    /\ state       = [i \in Server |-> Secondary]
+    /\ votedFor    = [i \in Server |-> Nil]
+    /\ appliedEntry = [i \in Server |-> [j \in Server |-> <<-1,-1>>]]
 
-InitLogVars == /\ log          = [i \in Server |-> << >>]
-               /\ commitIndex  = [i \in Server |-> 0]
-Init == /\ messages = [m \in {} |-> 0]
-        /\ InitLogVars
-        /\ InitHistoryVars
-        /\ InitServerVars
-        /\ InitCandidateVars
+InitCandidateVars == 
+    /\ votesResponded = [i \in Server |-> {}]
+    /\ votesGranted   = [i \in Server |-> {}]
+                     
+InitLogVars == 
+    /\ log          = [i \in Server |-> << >>]
+    /\ commitIndex  = [i \in Server |-> 0]
+    
+Init == 
+    /\ messages = [m \in {} |-> 0]
+    /\ InitLogVars
+    /\ InitHistoryVars
+    /\ InitServerVars
+    /\ InitCandidateVars
       
 \* Next state predicate for history and proof variables.  
 HistNext == 
@@ -360,6 +367,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jul 25 22:33:22 EDT 2018 by williamschultz
+\* Last modified Wed Jul 25 22:38:59 EDT 2018 by williamschultz
 \* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
