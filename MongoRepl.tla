@@ -125,9 +125,10 @@ Max(s) == CHOOSE x \in s : \A y \in s : x >= y
 
 ----
 
-\*
-\* Correctness Invariants
-\*
+(**************************************************************************************************)
+(* Correctness Properties                                                                         *)
+(**************************************************************************************************)
+
 
 \* The set of all log entries for a given log i.e. the set of all <<index, term>>
 \* pairs that appear in the log.
@@ -189,18 +190,24 @@ CanVoteFor(i, j) ==
 (******** Main Actions *******)
 (*****************************)
 
-\* Node i removes entries based against the log of node j.
+\* Node j removes entries based against the log of node i.
 RollbackEntries(i, j) == 
-    /\ Len(log[j]) > 0 /\ Len(log[i]) < Len(log[i]) 
-    \* Log consistency check fails.
-    /\ log[i][Len(log[i])] # log[j][Len(log[i])]
-    /\ LET commonIndices == {k \in DOMAIN log[i] : k <= Len(log[j]) /\ log[i][k] = log[j][k]} IN
+    /\ Len(log[i]) > 0 
+    /\ Len(log[j]) > 0
+    \* The terms of the last entries of each log do not match. The term of node i's last 
+    \* log entry is greater than that of node j's.
+    /\ log[i][Len(log[i])].term > log[j][Len(log[j])].term
+    /\ LET commonIndices == {k \in DOMAIN log[i] : 
+                                /\ k <= Len(log[j])
+                                /\ log[i][k] = log[j][k]} IN
            log' = IF commonIndices = {} 
-                  \* Erase the whole log.
-                  THEN [log EXCEPT ![i] = <<>>]
+                  \* If there is no common entry between log 'i' and
+                  \* log 'j', then it means that the all entries of log 'j'
+                  \* are divergent, and so we erase its entire log.
+                  THEN [log EXCEPT ![j] = <<>>]
                   \* Erase all log entries after the newest common entry.
-                  ELSE log' = [log EXCEPT ![i] = SubSeq(log[i], 1, Max(commonIndices))] 
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex>>
+                  ELSE [log EXCEPT ![j] = SubSeq(log[i], 1, Max(commonIndices))] 
+    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
                   
 
 \* Node i gets a new log entry from node j.
@@ -313,8 +320,8 @@ Next ==
        \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)
        \/ \E s, t \in Server : GetEntries(s, t)
        \/ \E s, t \in Server : RollbackEntries(s, t)
-       \/ \E s, t \in Server : UpdatePosition(s, t)
-       \/ \E s \in Server : AdvanceCommitPoint(s)
+\*       \/ \E s, t \in Server : UpdatePosition(s, t)
+\*       \/ \E s \in Server : AdvanceCommitPoint(s)
     /\ HistNext
 
 Spec == Init /\ [][Next]_vars
@@ -333,6 +340,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Jul 07 22:26:34 EDT 2018 by williamschultz
+\* Last modified Wed Jul 25 21:55:29 EDT 2018 by williamschultz
 \* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
