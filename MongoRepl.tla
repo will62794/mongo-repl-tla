@@ -137,17 +137,6 @@ LogEntries(xlog) == {<<i, xlog[i].term>> : i \in DOMAIN xlog}
 \* The set of all log entries (<<index, term>>) that appear in any log in the given log set.
 AllLogEntries(logSet) == UNION {LogEntries(l) : l \in logSet}      
 
-ElectionSafety == \A e1, e2 \in elections: 
-                    e1.eterm = e2.eterm => e1.eleader = e2.eleader
-
-\* An <<index, term>> pair should uniquely identify a log prefix.
-LogMatching == 
-    \A xlog, ylog \in allLogs : 
-    Len(xlog) <= Len(ylog) =>
-    \A i \in DOMAIN xlog : 
-        xlog[i].term = ylog[i].term => 
-        SubSeq(xlog, 1, i) = SubSeq(ylog, 1, i)
-
 \* Determines whether an <<index, term>> entry is immediately committed, based on the
 \* current state.
 ImmediatelyCommitted(index, term) == 
@@ -162,6 +151,17 @@ AllImmediatelyCommitted(logSet) == {e \in AllLogEntries(logSet) : ImmediatelyCom
 \* Is <<index, term>> in the given log.
 EntryInLog(xlog, index, term) == \E i \in DOMAIN xlog : <<index, term>> = <<i, xlog[i].term>> 
 
+ElectionSafety == \A e1, e2 \in elections: 
+                    e1.eterm = e2.eterm => e1.eleader = e2.eleader
+
+\* An <<index, term>> pair should uniquely identify a log prefix.
+LogMatching == 
+    \A xlog, ylog \in allLogs : 
+    Len(xlog) <= Len(ylog) =>
+    \A i \in DOMAIN xlog : 
+        xlog[i].term = ylog[i].term => 
+        SubSeq(xlog, 1, i) = SubSeq(ylog, 1, i)
+
 \* If an entry was immediately committed at term T, then it must appear in the logs of all 
 \* leaders of higher terms.
 LeaderCompleteness == 
@@ -171,7 +171,10 @@ LeaderCompleteness ==
 
 -----
 
-(*** Helper Operators ***)
+(**************************************************************************************************)
+(* Helper Operators                                                                               *)
+(**************************************************************************************************)
+
 
 \* The term of the last entry in a log, or 0 if the log is empty.
 LastTerm(xlog) == IF Len(xlog) = 0 THEN 0 ELSE xlog[Len(xlog)].term
@@ -186,9 +189,10 @@ CanVoteFor(i, j) ==
     /\ j # votedFor[i] 
     /\ logOk
     
-(*****************************)
-(******** Main Actions *******)
-(*****************************)
+    
+(**************************************************************************************************)
+(* Main Actions                                                                                   *)
+(**************************************************************************************************)    
 
 \* Is it possible for log 'lj' to roll back based on the log 'li'. If this is true, it implies that
 \* log 'lj' should remove entries to become a prefix of 'li'.
@@ -367,6 +371,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jul 25 22:38:59 EDT 2018 by williamschultz
+\* Last modified Wed Jul 25 22:42:45 EDT 2018 by williamschultz
 \* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
