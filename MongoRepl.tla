@@ -169,6 +169,14 @@ LeaderCompleteness ==
  \A election \in elections:
     election.eterm > term => EntryInLog(election.elog, index, term)
 
+\* If the 'commitIndex' on any server includes a particular log entry,
+\* then that log entry must be committed.    
+LearnerSafety == 
+    \A s \in Server :
+    \A i \in DOMAIN log[s] :
+        i < commitIndex[s] =>
+        <<i, log[s][i].term>> \in immediatelyCommitted
+
 -----
 
 (**************************************************************************************************)
@@ -255,7 +263,6 @@ GetEntries(i, j) ==
                  /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
     /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex>>
 
-
 QuorumAgreeInSameTerm(appliedEntryVal) == 
     LET quorums == {Q \in Quorum :
                     \* Make sure all nodes in quorum have actually applied some entries.
@@ -280,13 +287,20 @@ AdvanceCommitPoint(i) ==
         /\ LET newCommitIndex == Min({appliedEntry[i][s][1] : s \in quorumAgree}) IN
            commitIndex' = [commitIndex EXCEPT ![i] = newCommitIndex]
     /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, log, appliedEntry>>           
-
+    
 \* Node i updates node j with its latest progress.
 UpdatePosition(i, j) == 
     /\ Len(log[i]) > 0
+    \* If node 'j' gives a progress update to node 'i', it must make sure to
+    \* update the term of node 'i' with its own term, if it is higher. In a real system,
+    \* this action would occur by 'j' sending a progress update message to 'i' that includes 
+    \* the term of 'j' at the time of sending. Upon receiving the message, 'i' would update its
+    \* own term if it was smaller than the term attached to the message.
+    /\ currentTerm' = [currentTerm EXCEPT ![j] = Max({currentTerm[i], currentTerm[j]})]
     /\ LET lastEntry == <<Len(log[i]), LastTerm(log[i])>> IN
-           appliedEntry' = [appliedEntry EXCEPT ![j][i] = lastEntry] 
-    /\ UNCHANGED <<messages, serverVars, candidateVars, logVars, leaderVars, commitIndex>>           
+           /\ appliedEntry[j][i] # lastEntry \* Only update progress if newer.
+           /\ appliedEntry' = [appliedEntry EXCEPT ![j][i] = lastEntry] 
+    /\ UNCHANGED <<messages, state, votedFor, candidateVars, logVars, leaderVars, commitIndex>>           
     
 \* Node i times out and automatically becomes a leader, if eligible.
 BecomeLeader(i) == 
@@ -307,7 +321,7 @@ BecomeLeader(i) ==
                             evoterLog |-> voterLog[i]] IN
            elections'  = elections \cup {election}        
         /\ UNCHANGED <<messages, logVars, candidateVars, appliedEntry>>
-
+        
 \* Node i, which must be a primary, handles a new client request and places the entry in its log.
 ClientRequest(i, v) == 
     /\ state[i] = Primary
@@ -345,20 +359,21 @@ Init ==
     /\ InitHistoryVars
     /\ InitServerVars
     /\ InitCandidateVars
-      
-\* Next state predicate for history and proof variables.  
+
+\* Next state predicate for history and proof variables. We (unfortunately) add it to every next-state disjunct
+\* instead of adding it as a conjunct with the entire next-state relation because it makes for clearer TLC 
+\* Toolbox error traces i.e. we can see what specific action was executed at each step of the trace. 
 HistNext == 
     /\ allLogs' = allLogs \cup {log[i] : i \in Server}
     /\ immediatelyCommitted' = immediatelyCommitted \cup AllImmediatelyCommitted(allLogs)'
-           
+         
 Next == 
-    /\ \/ \E s \in Server : BecomeLeader(s)
-       \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)
-       \/ \E s, t \in Server : GetEntries(s, t)
-       \/ \E s, t \in Server : RollbackEntries(s, t)
-       \/ \E s, t \in Server : UpdatePosition(s, t)
-       \/ \E s \in Server : AdvanceCommitPoint(s)
-    /\ HistNext
+    \/ \E s \in Server : BecomeLeader(s)                         /\ HistNext
+    \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)    /\ HistNext
+    \/ \E s, t \in Server : GetEntries(s, t)                     /\ HistNext
+    \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext
+    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
+    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
 
 Spec == Init /\ [][Next]_vars
 
@@ -376,6 +391,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jul 25 23:11:29 EDT 2018 by williamschultz
+\* Last modified Thu Jul 26 22:50:25 EDT 2018 by williamschultz
 \* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
