@@ -1,2 +1,4 @@
 [ ] Add a proper definition of prefix committed, and add it to the definition of LearnerSafety. That is,
 Learner Safety should take into account that entries can either be immediately committed OR prefix committed.
+[ ] After adding prefix committed definition, verify that Committed entries are equivalent to the union of 
+immediately committed or prefix committed entries.

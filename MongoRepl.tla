@@ -196,8 +196,23 @@ CanVoteFor(i, j) ==
     /\ currentTerm[i] <= currentTerm[j]
     /\ j # votedFor[i] 
     /\ logOk
-    
-    
+ 
+\* Could server 'i' win an election in the current state.
+IsElectable(i) == 
+    LET voters == {s \in Server : CanVoteFor(s, i)} IN
+        voters \in Quorum
+
+\* Determine which log entries are currently committed by looking
+\* at all servers that are electable.
+Committed == 
+    LET electable     == {s \in Server : IsElectable(s)} 
+        electableLogs == {log[s] : s \in electable}
+        smallestLog   == CHOOSE l \in electableLogs : Len(l) = Min({Len(k) : k \in electableLogs})
+        matchingIndices == {i \in DOMAIN smallestLog : \A otherLog \in electableLogs : smallestLog[i] = otherLog[i]} IN
+        IF matchingIndices = {} 
+            THEN {} 
+            ELSE {<<i, smallestLog[i].term>> : i \in 1..Max(matchingIndices)}
+
 (**************************************************************************************************)
 (* Main Actions                                                                                   *)
 (**************************************************************************************************)    
@@ -372,8 +387,8 @@ Next ==
     \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)    /\ HistNext
     \/ \E s, t \in Server : GetEntries(s, t)                     /\ HistNext
     \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext
-    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
-    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
+\*    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
+\*    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
 
 Spec == Init /\ [][Next]_vars
 
@@ -391,6 +406,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
+\* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Last modified Thu Jul 26 22:50:25 EDT 2018 by williamschultz
-\* Last modified Mon Apr 16 21:04:34 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
