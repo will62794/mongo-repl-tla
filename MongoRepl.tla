@@ -148,6 +148,19 @@ ImmediatelyCommitted(index, term) ==
 \* The set of all 'immediately committed' log entries in the given set of logs.
 AllImmediatelyCommitted(logSet) == {e \in AllLogEntries(logSet) : ImmediatelyCommitted(e[1], e[2])}
 
+\* The log indices of a given log that are 'prefix committed'. By the definition given below, entries that are 
+\* prefix committed  may also be 'immediately committed', but the important property is that the union of the 
+\* 'prefix committed' and 'immediately committed' entry sets should contain all committed entries.
+PrefixCommittedIndices(l) == 
+    {i \in DOMAIN l : 
+        \E k \in DOMAIN l :
+            /\ ImmediatelyCommitted(k, l[k].term)
+            /\ k > i}
+            
+PrefixCommittedEntries(l) == {<<i, l[i].term>> : i \in PrefixCommittedIndices(l)}
+
+PrefixCommitted == UNION { PrefixCommittedEntries(log[s]) : s \in Server}
+
 \* Is <<index, term>> in the given log.
 EntryInLog(xlog, index, term) == \E i \in DOMAIN xlog : <<index, term>> = <<i, xlog[i].term>> 
 
@@ -162,21 +175,31 @@ LogMatching ==
         xlog[i].term = ylog[i].term => 
         SubSeq(xlog, 1, i) = SubSeq(ylog, 1, i)
 
-\* If an entry was immediately committed at term T, then it must appear in the logs of all 
+CommittedEntries == immediatelyCommitted \cup PrefixCommitted
+
+\* If an entry was committed, then it must appear in the logs of all 
 \* leaders of higher terms.
 LeaderCompleteness == 
- \A <<index,term>> \in immediatelyCommitted :
+ \A <<index,term>> \in CommittedEntries :
  \A election \in elections:
     election.eterm > term => EntryInLog(election.elog, index, term)
 
 \* If the 'commitIndex' on any server includes a particular log entry,
-\* then that log entry must be committed.    
+\* then that log entry must be committed. To generalize the approach of
+\* basic Raft, we store commitIndex as an <<index, term>> pair, instead of
+\* just an index. That way we can store information about the commit point
+\* even if if our log doesn't contain the committed entries. An <<index,term>>
+\* pair should uniquely identify a log prefix (Log Matching), so a commitIndex
+\* being at <<index, term>> indicates that that unique log prefix is committed.   
 LearnerSafety == 
     \A s \in Server :
-    \A i \in DOMAIN log[s] :
-        i < commitIndex[s] =>
-        <<i, log[s][i].term>> \in immediatelyCommitted
-
+    \* If the commit point exists in the node's log, then it should contain
+    \* all committed entries. Otherwise, it is not necessary to contain the committed
+    \* entries.
+    EntryInLog(log[s], commitIndex[s][1], commitIndex[s][2]) =>
+        \A i \in DOMAIN log[s] :
+            i < commitIndex[s][1] =>
+            <<i, log[s][i].term>> \in CommittedEntries
 -----
 
 (**************************************************************************************************)
@@ -202,16 +225,25 @@ IsElectable(i) ==
     LET voters == {s \in Server : CanVoteFor(s, i)} IN
         voters \in Quorum
 
-\* Determine which log entries are currently committed by looking
-\* at all servers that are electable.
-Committed == 
-    LET electable     == {s \in Server : IsElectable(s)} 
-        electableLogs == {log[s] : s \in electable}
-        smallestLog   == CHOOSE l \in electableLogs : Len(l) = Min({Len(k) : k \in electableLogs})
-        matchingIndices == {i \in DOMAIN smallestLog : \A otherLog \in electableLogs : smallestLog[i] = otherLog[i]} IN
-        IF matchingIndices = {} 
-            THEN {} 
-            ELSE {<<i, smallestLog[i].term>> : i \in 1..Max(matchingIndices)}
+\*\* Determine which log entries are currently committed by looking
+\*\* at all servers that are electable.
+\*Committed == 
+\*    LET electable     == {s \in Server : IsElectable(s)} IN
+\*        IF electable = {} THEN {}
+\*        ELSE
+\*        LET electableLogs == {log[s] : s \in electable}
+\*            smallestLog   == CHOOSE l \in electableLogs : Len(l) = Min({Len(k) : k \in electableLogs})
+\*            matchingIndices == {i \in DOMAIN smallestLog : \A otherLog \in electableLogs : smallestLog[i] = otherLog[i]} IN
+\*            IF matchingIndices = {} 
+\*                THEN {} 
+\*                ELSE {<<i, smallestLog[i].term>> : i \in 1..Max(matchingIndices)}
+\*            
+\*\* If an entry was immediately committed at term T, then it must appear in the logs of all 
+\*\* leaders of higher terms. Uses an alternate definition of 'committed'.
+\*LeaderCompletenessAlternate == 
+\* \A <<index,term>> \in Committed :
+\* \A election \in elections:
+\*    election.eterm > term => EntryInLog(election.elog, index, term)
 
 (**************************************************************************************************)
 (* Main Actions                                                                                   *)
@@ -254,13 +286,14 @@ RollbackSafety ==
         LET commonPoint == RollbackCommonPoint(log[i], log[j])
             entriesToRollback == SubSeq(log[j], commonPoint + 1, Len(log[j])) IN
             \* The entries being rolled back should NOT be committed.
-            entriesToRollback \cap immediatelyCommitted = {}
-                
+            entriesToRollback \cap CommittedEntries = {}            
 
 \* Node i gets a new log entry from node j.
 GetEntries(i, j) == 
+    /\ state[i] = Secondary
     \* Node j must have more entries than node i.
     /\ Len(log[j]) > Len(log[i])
+    /\ currentTerm[j] >= currentTerm[i]
        \* log[i] is empty.
     /\ \/ /\ Len(log[i]) = 0
           /\ LET newEntry == log[j][1]
@@ -276,7 +309,8 @@ GetEntries(i, j) ==
                  newLog   == Append(log[i], newEntry) IN
                  /\ log' = [log EXCEPT ![i] = newLog]
                  /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex>>
+    /\ currentTerm' = [currentTerm EXCEPT ![i] = currentTerm[j]]
+    /\ UNCHANGED <<messages, state, votedFor, candidateVars, leaderVars, commitIndex>>
 
 QuorumAgreeInSameTerm(appliedEntryVal) == 
     LET quorums == {Q \in Quorum :
@@ -296,11 +330,13 @@ AdvanceCommitPoint(i) ==
         /\ quorumAgree # Nil
         \* The term of the entries in the quorum must match our current term.
         /\ LET serverInQuorum == CHOOSE s \in quorumAgree : TRUE
-               termOfQuorum == appliedEntry[i][serverInQuorum][2] IN
-               termOfQuorum = currentTerm[i]
-        \* Choose the minimum index of the applied entries in the quorum.
-        /\ LET newCommitIndex == Min({appliedEntry[i][s][1] : s \in quorumAgree}) IN
-           commitIndex' = [commitIndex EXCEPT ![i] = newCommitIndex]
+               termOfQuorum == appliedEntry[i][serverInQuorum][2] 
+               \* The minimum index of the applied entries in the quorum.
+               newCommitIndex == Min({appliedEntry[i][s][1] : s \in quorumAgree}) IN
+               /\ termOfQuorum = currentTerm[i]
+               \* We store the commit index as an <<index, term>> pair instead of just an
+               \* index, so that we can uniquely identify a committed log prefix.
+               /\ commitIndex' = [commitIndex EXCEPT ![i] = <<newCommitIndex, termOfQuorum>>]
     /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, log, appliedEntry>>           
     
 \* Node i updates node j with its latest progress.
@@ -312,10 +348,12 @@ UpdatePosition(i, j) ==
     \* the term of 'j' at the time of sending. Upon receiving the message, 'i' would update its
     \* own term if it was smaller than the term attached to the message.
     /\ currentTerm' = [currentTerm EXCEPT ![j] = Max({currentTerm[i], currentTerm[j]})]
+    \* Primary nodes must revert to Secondary state if they increment their local term.
+    /\ state' = [state EXCEPT ![j] = IF currentTerm[i] > currentTerm[j] THEN Secondary ELSE @]
     /\ LET lastEntry == <<Len(log[i]), LastTerm(log[i])>> IN
            /\ appliedEntry[j][i] # lastEntry \* Only update progress if newer.
            /\ appliedEntry' = [appliedEntry EXCEPT ![j][i] = lastEntry] 
-    /\ UNCHANGED <<messages, state, votedFor, candidateVars, logVars, leaderVars, commitIndex>>           
+    /\ UNCHANGED <<messages, votedFor, candidateVars, logVars, leaderVars, commitIndex>>           
     
 \* Node i times out and automatically becomes a leader, if eligible.
 BecomeLeader(i) == 
@@ -327,7 +365,7 @@ BecomeLeader(i) ==
         /\ votedFor' = [s \in Server |-> IF s \in voters THEN i ELSE votedFor[s]]
         /\ state' = [s \in Server |-> 
                         IF s = i THEN Primary
-                        ELSE IF state[s] = Primary THEN Secondary \* Previous primaries should revert to secondary state.
+                        ELSE IF s \in voters THEN Secondary \* All voters should revert to secondary state.
                         ELSE state[s]] 
         /\ LET election == [eterm     |-> newTerm,
                             eleader   |-> i,
@@ -366,7 +404,7 @@ InitCandidateVars ==
                      
 InitLogVars == 
     /\ log          = [i \in Server |-> << >>]
-    /\ commitIndex  = [i \in Server |-> 0]
+    /\ commitIndex  = [i \in Server |-> <<0, 0>>]
     
 Init == 
     /\ messages = [m \in {} |-> 0]
@@ -387,8 +425,8 @@ Next ==
     \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)    /\ HistNext
     \/ \E s, t \in Server : GetEntries(s, t)                     /\ HistNext
     \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext
-\*    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
-\*    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
+    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
+    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
 
 Spec == Init /\ [][Next]_vars
 
@@ -406,6 +444,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
+\* Last modified Tue Jul 31 10:03:34 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
-\* Last modified Thu Jul 26 22:50:25 EDT 2018 by williamschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
