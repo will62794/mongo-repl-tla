@@ -123,16 +123,20 @@ Min(s) == CHOOSE x \in s : \A y \in s : x <= y
 \* Return the maximum value from a set, or undefined if the set is empty.
 Max(s) == CHOOSE x \in s : \A y \in s : x >= y
 
+Range(f) == {f[x] : x \in DOMAIN f}
+
 ----
 
 (**************************************************************************************************)
 (* Correctness Properties                                                                         *)
 (**************************************************************************************************)
 
-
 \* The set of all log entries for a given log i.e. the set of all <<index, term>>
 \* pairs that appear in the log.
 LogEntries(xlog) == {<<i, xlog[i].term>> : i \in DOMAIN xlog}
+
+\* Is <<index, term>> in the given log.
+EntryInLog(xlog, index, term) == <<index, term>> \in LogEntries(xlog)
 
 \* The set of all log entries (<<index, term>>) that appear in any log in the given log set.
 AllLogEntries(logSet) == UNION {LogEntries(l) : l \in logSet}      
@@ -143,26 +147,48 @@ ImmediatelyCommitted(index, term) ==
     \E Q \in Quorum :
         \A q \in Q : 
             /\ currentTerm[q] = term 
-            /\ \E i \in DOMAIN log[q] : i=index /\ log[q][i].term = term
+            /\ EntryInLog(log[q], index, term)
 
-\* The set of all 'immediately committed' log entries in the given set of logs.
-AllImmediatelyCommitted(logSet) == {e \in AllLogEntries(logSet) : ImmediatelyCommitted(e[1], e[2])}
+\* The set of all 'immediately committed' log entries in the current state. An entry is committed
+\* at a term t, so we store the entry itself along with the term at which it was committed. In general, the 
+\* "commitment term" doesn't need to match the term of the entry itself, although for immediately committed 
+\* entries, it will. It may not for prefix committed entries, though.
+AllImmediatelyCommitted == 
+    LET entries == {e \in AllLogEntries(Range(log)) : ImmediatelyCommitted(e[1], e[2])} IN
+    {[entry |-> e, term |-> e[2]] : e \in entries}
 
-\* The log indices of a given log that are 'prefix committed'. By the definition given below, entries that are 
-\* prefix committed  may also be 'immediately committed', but the important property is that the union of the 
-\* 'prefix committed' and 'immediately committed' entry sets should contain all committed entries.
-PrefixCommittedIndices(l) == 
-    {i \in DOMAIN l : 
-        \E k \in DOMAIN l :
-            /\ ImmediatelyCommitted(k, l[k].term)
-            /\ k > i}
-            
-PrefixCommittedEntries(l) == {<<i, l[i].term>> : i \in PrefixCommittedIndices(l)}
+\* The set of prefix committed entries within a log.
+PrefixCommittedEntries == 
+    {e \in AllLogEntries(Range(log)) :
+        \E l \in Range(log) : 
+            /\ EntryInLog(l, e[1], e[2])
+            /\ \E c \in LogEntries(l) :
+                /\ c[1] > e[1]
+                /\ \E x \in AllImmediatelyCommitted : c = x.entry}
 
-PrefixCommitted == UNION { PrefixCommittedEntries(log[s]) : s \in Server}
+PrefixCommittedEntriesWithTerm == 
+    {   LET commitmentTerm == CHOOSE t \in 1..10 : 
+            \E l \in Range(log) :
+                /\ EntryInLog(l, e[1], e[2])
+                /\ \E c \in LogEntries(l) :
+                    /\ c[1] > e[1]
+                    /\ [entry |-> c, term |-> t] \in AllImmediatelyCommitted IN
+         [entry |-> e, term |-> commitmentTerm]
+        : e \in PrefixCommittedEntries}
 
-\* Is <<index, term>> in the given log.
-EntryInLog(xlog, index, term) == \E i \in DOMAIN xlog : <<index, term>> = <<i, xlog[i].term>> 
+\*\* The log indices of a given log that are 'prefix committed'. By the definition given below, entries that are 
+\*\* prefix committed  may also be 'immediately committed', but the important property is that the union of the 
+\*\* 'prefix committed' and 'immediately committed' entry sets should contain all committed entries.
+\*PrefixCommittedIndices(l) == 
+\*    {i \in DOMAIN l : 
+\*        \E k \in DOMAIN l :
+\*            /\ ImmediatelyCommitted(k, l[k].term)
+\*            /\ k > i}
+\*            
+\*PrefixCommittedEntriesOfLog(l) == 
+\*    {<<i, l[i].term>> : i \in PrefixCommittedIndices(l)}
+\*
+\*PrefixCommitted == UNION { PrefixCommittedEntriesOfLog(log[s]) : s \in Server}
 
 ElectionSafety == \A e1, e2 \in elections: 
                     e1.eterm = e2.eterm => e1.eleader = e2.eleader
@@ -175,14 +201,16 @@ LogMatching ==
         xlog[i].term = ylog[i].term => 
         SubSeq(xlog, 1, i) = SubSeq(ylog, 1, i)
 
-CommittedEntries == immediatelyCommitted \cup PrefixCommitted
+CommittedEntries == immediatelyCommitted \cup PrefixCommittedEntriesWithTerm
 
 \* If an entry was committed, then it must appear in the logs of all 
 \* leaders of higher terms.
 LeaderCompleteness == 
- \A <<index,term>> \in CommittedEntries :
+ \A e \in CommittedEntries :
  \A election \in elections:
-    election.eterm > term => EntryInLog(election.elog, index, term)
+    LET index == e.entry[1] 
+        term == e.entry[2] IN
+    election.eterm > e.term => EntryInLog(election.elog, index, term)
 
 \* If the 'commitIndex' on any server includes a particular log entry,
 \* then that log entry must be committed. To generalize the approach of
@@ -418,7 +446,7 @@ Init ==
 \* Toolbox error traces i.e. we can see what specific action was executed at each step of the trace. 
 HistNext == 
     /\ allLogs' = allLogs \cup {log[i] : i \in Server}
-    /\ immediatelyCommitted' = immediatelyCommitted \cup AllImmediatelyCommitted(allLogs)'
+    /\ immediatelyCommitted' = immediatelyCommitted \cup AllImmediatelyCommitted'
          
 Next == 
     \/ \E s \in Server : BecomeLeader(s)                         /\ HistNext
@@ -444,6 +472,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Tue Jul 31 10:03:34 EDT 2018 by williamschultz
+\* Last modified Tue Jul 31 22:31:28 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
