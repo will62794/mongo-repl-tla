@@ -90,33 +90,6 @@ vars == <<messages, allLogs, serverVars, candidateVars, leaderVars, logVars, app
 \* The set of all quorums. This just calculates simple majorities, but the only
 \* important property is that every quorum overlaps with every other.
 Quorum == {i \in SUBSET(Server) : Cardinality(i) * 2 > Cardinality(Server)}
-
-\* Helper for Send and Reply. Given a message m and bag of messages, return a
-\* new bag of messages with one more m in it.
-WithMessage(m, msgs) ==
-    IF m \in DOMAIN msgs THEN
-        [msgs EXCEPT ![m] = msgs[m] + 1]
-    ELSE
-        msgs @@ (m :> 1)
-
-\* Helper for Discard and Reply. Given a message m and bag of messages, return
-\* a new bag of messages with one less m in it.
-WithoutMessage(m, msgs) ==
-    IF m \in DOMAIN msgs THEN
-        [msgs EXCEPT ![m] = msgs[m] - 1]
-    ELSE
-        msgs
-
-\* Add a message to the bag of messages.
-Send(m) == messages' = WithMessage(m, messages)
-
-\* Remove a message from the bag of messages. Used when a server is done
-\* processing a message.
-Discard(m) == messages' = WithoutMessage(m, messages)
-
-\* Combination of Send and Discard
-Reply(response, request) ==
-    messages' = WithoutMessage(request, WithMessage(response, messages))
     
 \* Return the minimum value from a set, or undefined if the set is empty.
 Min(s) == CHOOSE x \in s : \A y \in s : x <= y
@@ -472,6 +445,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Tue Jul 31 22:31:28 EDT 2018 by williamschultz
+\* Last modified Sat Aug 04 12:18:08 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
