@@ -392,6 +392,16 @@ LearnerSafety ==
             i < commitIndex[s][1] =>
             \E c \in CommittedEntries : <<i, log[s][i].term>> = c.entry
 
+\*
+\* Liveness Properties (Experimental)
+\*
+
+\* Eventually all servers store the same logs forever. This should only be true 
+\* in the absence of new client requests, but if the maximum log length of 
+\* servers is limited in a model, then logs should eventually converge, since new client
+\* requests will eventually be disallowed.
+EventuallyLogsConverge == <>[](\A s, t \in Server : s # t => log[s] = log[t])
+
 -------------------------------------------------------------------------------------------
 
 (**************************************************************************************************)
@@ -464,7 +474,7 @@ Next ==
     \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
     \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
 
-Spec == Init /\ [][Next]_vars
+Spec == Init /\ [][Next]_vars /\ WF_vars(Next)
 
 -------------------------------------------------------------------------------------------
 
@@ -483,6 +493,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 04 17:52:40 EDT 2018 by williamschultz
+\* Last modified Sat Aug 04 18:25:46 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
