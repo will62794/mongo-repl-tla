@@ -149,20 +149,6 @@ PrefixCommittedEntriesWithTerm ==
          [entry |-> e, term |-> commitmentTerm]
         : e \in PrefixCommittedEntries}
 
-\*\* The log indices of a given log that are 'prefix committed'. By the definition given below, entries that are 
-\*\* prefix committed  may also be 'immediately committed', but the important property is that the union of the 
-\*\* 'prefix committed' and 'immediately committed' entry sets should contain all committed entries.
-\*PrefixCommittedIndices(l) == 
-\*    {i \in DOMAIN l : 
-\*        \E k \in DOMAIN l :
-\*            /\ ImmediatelyCommitted(k, l[k].term)
-\*            /\ k > i}
-\*            
-\*PrefixCommittedEntriesOfLog(l) == 
-\*    {<<i, l[i].term>> : i \in PrefixCommittedIndices(l)}
-\*
-\*PrefixCommitted == UNION { PrefixCommittedEntriesOfLog(log[s]) : s \in Server}
-
 ElectionSafety == \A e1, e2 \in elections: 
                     e1.eterm = e2.eterm => e1.eleader = e2.eleader
 
@@ -445,6 +431,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 04 12:18:08 EDT 2018 by williamschultz
+\* Last modified Sat Aug 04 12:25:05 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
