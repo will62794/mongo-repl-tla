@@ -1,6 +1,7 @@
 ----------------------------- MODULE MongoRepl -----------------------------
-
-\* A high level specification of the MongoDB replication protocol.
+(**************************************************************************************************)
+(* A high level specification of the MongoDB replication protocol.                                *)
+(**************************************************************************************************)
 
 EXTENDS Naturals, Integers, FiniteSets, Sequences, TLC
 
@@ -20,7 +21,8 @@ CONSTANTS Nil
 CONSTANTS RequestVoteRequest, RequestVoteResponse,
           AppendEntriesRequest, AppendEntriesResponse
 
-----
+-------------------------------------------------------------------------------------------
+
 \* Global variables
 
 \* A bag of records representing requests and responses sent from one server
@@ -40,7 +42,8 @@ VARIABLE allLogs
 \* Set of all immediately committed <<index, term>> log entry pairs.
 VARIABLE immediatelyCommitted
 
-----
+-------------------------------------------------------------------------------------------
+
 \* The following variables are all per server (functions with domain Server).
 
 \* The server's term number.
@@ -87,18 +90,193 @@ leaderVars == <<elections>>
 
 vars == <<messages, allLogs, serverVars, candidateVars, leaderVars, logVars, appliedEntry, immediatelyCommitted>>
 
+-------------------------------------------------------------------------------------------
+
+(**************************************************************************************************)
+(* Generic helper operators                                                                       *)
+(**************************************************************************************************)
+
 \* The set of all quorums. This just calculates simple majorities, but the only
 \* important property is that every quorum overlaps with every other.
 Quorum == {i \in SUBSET(Server) : Cardinality(i) * 2 > Cardinality(Server)}
     
 \* Return the minimum value from a set, or undefined if the set is empty.
 Min(s) == CHOOSE x \in s : \A y \in s : x <= y
+
 \* Return the maximum value from a set, or undefined if the set is empty.
 Max(s) == CHOOSE x \in s : \A y \in s : x >= y
 
+\* Return the range of a given function.
 Range(f) == {f[x] : x \in DOMAIN f}
 
-----
+-------------------------------------------------------------------------------------------
+
+(**************************************************************************************************)
+(* Next state actions.                                                                            *)
+(**************************************************************************************************)    
+
+\* The term of the last entry in a log, or 0 if the log is empty.
+LastTerm(xlog) == IF Len(xlog) = 0 THEN 0 ELSE xlog[Len(xlog)].term
+
+\* Can node 'i' currently cast a vote for node 'j'.
+CanVoteFor(i, j) == 
+    LET logOk == 
+        \/ LastTerm(log[j]) > LastTerm(log[i])
+        \/ /\ LastTerm(log[j]) = LastTerm(log[i])
+           /\ Len(log[j]) >= Len(log[i]) IN
+    /\ currentTerm[i] <= currentTerm[j]
+    /\ j # votedFor[i] 
+    /\ logOk
+ 
+\* Could server 'i' win an election in the current state.
+IsElectable(i) == 
+    LET voters == {s \in Server : CanVoteFor(s, i)} IN
+        voters \in Quorum
+
+\* Is it possible for log 'lj' to roll back based on the log 'li'. If this is true, it implies that
+\* log 'lj' should remove entries to become a prefix of 'li'.
+CanRollback(li, lj) == 
+    /\ Len(li) > 0 
+    /\ Len(lj) > 0
+    \* The terms of the last entries of each log do not match. The term of node i's last 
+    \* log entry is greater than that of node j's.
+    /\ li[Len(li)].term > lj[Len(lj)].term
+
+\* Returns the highest common index between two divergent logs, 'li' and 'lj'. 
+\* If there is no common index between the logs, returns 0.
+RollbackCommonPoint(li, lj) == 
+    LET commonIndices == {k \in DOMAIN li : 
+                            /\ k <= Len(lj)
+                            /\ li[k] = lj[k]} IN
+        IF commonIndices = {} THEN 0 ELSE Max(commonIndices)
+    
+
+(**************************************************************************************************)
+(* Node 'j' removes entries based against the log of node 'i'.                                    *)
+(**************************************************************************************************)
+RollbackEntries(i, j) == 
+    /\ CanRollback(log[i], log[j])
+    /\ LET commonPoint == RollbackCommonPoint(log[i], log[j]) IN
+           \* If there is no common entry between log 'i' and
+           \* log 'j', then it means that the all entries of log 'j'
+           \* are divergent, and so we erase its entire log. Otherwise
+           \* we erase all log entries after the newest common entry. Note that 
+           \* if the commonPoint is '0' then SubSeq(log[i], 1, 0) will evaluate
+           \* to <<>>, the empty sequence.
+           log' = [log EXCEPT ![j] = SubSeq(log[i], 1, commonPoint)] 
+    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
+       
+
+(**************************************************************************************************)
+(* Node 'i' gets a new log entry from node 'j'.                                                   *)
+(**************************************************************************************************)
+GetEntries(i, j) == 
+    /\ state[i] = Secondary
+    \* Node j must have more entries than node i.
+    /\ Len(log[j]) > Len(log[i])
+    /\ currentTerm[j] >= currentTerm[i]
+       \* log[i] is empty.
+    /\ \/ /\ Len(log[i]) = 0
+          /\ LET newEntry == log[j][1]
+                 newLog   == Append(log[i], newEntry) IN
+             /\ log' = [log EXCEPT ![i] = newLog]
+             /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
+       \* log[i] is non-empty. In this case, the entry at the last
+       \* index of node i's log must match the entry at the same index in node j's
+       \* log. This is the essential 'log consistency check'.
+       \/ /\ Len(log[i]) > 0
+          /\ log[j][Len(log[i])] = log[i][Len(log[i])]
+          /\ LET newEntry == log[j][Len(log[i]) + 1] 
+                 newLog   == Append(log[i], newEntry) IN
+                 /\ log' = [log EXCEPT ![i] = newLog]
+                 /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
+    /\ currentTerm' = [currentTerm EXCEPT ![i] = currentTerm[j]]
+    /\ UNCHANGED <<messages, state, votedFor, candidateVars, leaderVars, commitIndex>>
+
+QuorumAgreeInSameTerm(appliedEntryVal) == 
+    LET quorums == {Q \in Quorum :
+                    \* Make sure all nodes in quorum have actually applied some entries.
+                    /\ \A s \in Q : appliedEntryVal[s][1] > 0
+                    \* Make sure every applied entry in quorum has the same term.
+                    /\ \A s, t \in Q : 
+                       s # t => appliedEntryVal[s][2] = appliedEntryVal[t][2]} IN
+        IF quorums = {} THEN Nil ELSE CHOOSE x \in quorums : TRUE
+
+(**************************************************************************************************)
+(* Naive (and quite possibly incorrect) approach.  Calculate the commit point purely based on the *)
+(* values in your current 'appliedEntry' vector.  Choose the highest index that is agreed upon by *)
+(* a majority.  We are only allowed to choose a quorum whose last applied entries have the same   *)
+(* term.                                                                                          *)
+(**************************************************************************************************)
+AdvanceCommitPoint(i) == 
+    LET quorumAgree == QuorumAgreeInSameTerm(appliedEntry[i]) IN
+        /\ quorumAgree # Nil
+        \* The term of the entries in the quorum must match our current term.
+        /\ LET serverInQuorum == CHOOSE s \in quorumAgree : TRUE
+               termOfQuorum == appliedEntry[i][serverInQuorum][2] 
+               \* The minimum index of the applied entries in the quorum.
+               newCommitIndex == Min({appliedEntry[i][s][1] : s \in quorumAgree}) IN
+               /\ termOfQuorum = currentTerm[i]
+               \* We store the commit index as an <<index, term>> pair instead of just an
+               \* index, so that we can uniquely identify a committed log prefix.
+               /\ commitIndex' = [commitIndex EXCEPT ![i] = <<newCommitIndex, termOfQuorum>>]
+    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, log, appliedEntry>>           
+    
+(**************************************************************************************************)
+(* Node 'i' updates node 'j' with its latest progress.                                            *)
+(**************************************************************************************************)
+UpdatePosition(i, j) == 
+    /\ Len(log[i]) > 0
+    \* If node 'j' gives a progress update to node 'i', it must make sure to
+    \* update the term of node 'i' with its own term, if it is higher. In a real system,
+    \* this action would occur by 'j' sending a progress update message to 'i' that includes 
+    \* the term of 'j' at the time of sending. Upon receiving the message, 'i' would update its
+    \* own term if it was smaller than the term attached to the message.
+    /\ currentTerm' = [currentTerm EXCEPT ![j] = Max({currentTerm[i], currentTerm[j]})]
+    \* Primary nodes must revert to Secondary state if they increment their local term.
+    /\ state' = [state EXCEPT ![j] = IF currentTerm[i] > currentTerm[j] THEN Secondary ELSE @]
+    /\ LET lastEntry == <<Len(log[i]), LastTerm(log[i])>> IN
+           /\ appliedEntry[j][i] # lastEntry \* Only update progress if newer.
+           /\ appliedEntry' = [appliedEntry EXCEPT ![j][i] = lastEntry] 
+    /\ UNCHANGED <<messages, votedFor, candidateVars, logVars, leaderVars, commitIndex>>           
+    
+    
+(**************************************************************************************************)
+(* Node 'i' times out and automatically becomes a leader, if eligible.                            *)
+(**************************************************************************************************)
+BecomeLeader(i) == 
+    LET voters == {s \in Server : CanVoteFor(s, i)}
+        newTerm == currentTerm[i] + 1 IN
+        /\ voters \in Quorum
+        \* Update the terms of each voter.
+        /\ currentTerm' = [s \in Server |-> IF s \in voters THEN newTerm ELSE currentTerm[s]]
+        /\ votedFor' = [s \in Server |-> IF s \in voters THEN i ELSE votedFor[s]]
+        /\ state' = [s \in Server |-> 
+                        IF s = i THEN Primary
+                        ELSE IF s \in voters THEN Secondary \* All voters should revert to secondary state.
+                        ELSE state[s]] 
+        /\ LET election == [eterm     |-> newTerm,
+                            eleader   |-> i,
+                            elog      |-> log[i],
+                            evotes    |-> voters,
+                            evoterLog |-> voterLog[i]] IN
+           elections'  = elections \cup {election}        
+        /\ UNCHANGED <<messages, logVars, candidateVars, appliedEntry>>
+        
+(**************************************************************************************************)
+(* Node 'i', a primary, handles a new client request and places the entry in its log              *)
+(**************************************************************************************************)        
+ClientRequest(i, v) == 
+    /\ state[i] = Primary
+    /\ LET entry == [term  |-> currentTerm[i],
+                     value |-> v]
+       newLog == Append(log[i], entry) IN
+       /\ log' = [log EXCEPT ![i] = newLog]
+       /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), entry.term>>]
+    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex>>
+
+
+-------------------------------------------------------------------------------------------
 
 (**************************************************************************************************)
 (* Correctness Properties                                                                         *)
@@ -149,21 +327,38 @@ PrefixCommittedEntriesWithTerm ==
          [entry |-> e, term |-> commitmentTerm]
         : e \in PrefixCommittedEntries}
 
+(**************************************************************************************************)
+(* There should be at most one leader per term.                                                   *)
+(**************************************************************************************************)
 ElectionSafety == \A e1, e2 \in elections: 
                     e1.eterm = e2.eterm => e1.eleader = e2.eleader
 
-\* An <<index, term>> pair should uniquely identify a log prefix.
+(**************************************************************************************************)
+(* An <<index, term>> pair should uniquely identify a log prefix.                                 *)
+(**************************************************************************************************)
 LogMatching == 
     \A xlog, ylog \in allLogs : 
     Len(xlog) <= Len(ylog) =>
     \A i \in DOMAIN xlog : 
         xlog[i].term = ylog[i].term => 
         SubSeq(xlog, 1, i) = SubSeq(ylog, 1, i)
-
+       
 CommittedEntries == immediatelyCommitted \cup PrefixCommittedEntriesWithTerm
 
-\* If an entry was committed, then it must appear in the logs of all 
-\* leaders of higher terms.
+(**************************************************************************************************)
+(* Only uncommitted entries are allowed to be deleted from logs.                                  *)
+(**************************************************************************************************)    
+RollbackSafety == 
+    \E i,j \in Server : CanRollback(log[i], log[j]) =>
+        LET commonPoint == RollbackCommonPoint(log[i], log[j])
+            entriesToRollback == SubSeq(log[j], commonPoint + 1, Len(log[j])) IN
+            \* The entries being rolled back should NOT be committed.
+            entriesToRollback \cap CommittedEntries = {}     
+
+
+(**************************************************************************************************)
+(* If an entry was committed, then it must appear in the logs of all leaders of higher terms.     *)
+(**************************************************************************************************)
 LeaderCompleteness == 
  \A e \in CommittedEntries :
  \A election \in elections:
@@ -171,13 +366,14 @@ LeaderCompleteness ==
         term == e.entry[2] IN
     election.eterm > e.term => EntryInLog(election.elog, index, term)
 
-\* If the 'commitIndex' on any server includes a particular log entry,
-\* then that log entry must be committed. To generalize the approach of
-\* basic Raft, we store commitIndex as an <<index, term>> pair, instead of
-\* just an index. That way we can store information about the commit point
-\* even if if our log doesn't contain the committed entries. An <<index,term>>
-\* pair should uniquely identify a log prefix (Log Matching), so a commitIndex
-\* being at <<index, term>> indicates that that unique log prefix is committed.   
+(**************************************************************************************************)
+(* If the 'commitIndex' on any server includes a particular log entry, then that log entry must   *)
+(* be committed.  To generalize the approach of basic Raft, we store commitIndex as an <<index,   *)
+(* term>> pair, instead of just an index.  That way we can store information about the commit     *)
+(* point even if if our log doesn't contain the committed entries.  An <<index,term>> pair should *)
+(* uniquely identify a log prefix (Log Matching), so a commitIndex being at <<index, term>>       *)
+(* indicates that that unique log prefix is committed.                                            *)
+(**************************************************************************************************)  
 LearnerSafety == 
     \A s \in Server :
     \* If the commit point exists in the node's log, then it should contain
@@ -187,191 +383,13 @@ LearnerSafety ==
         \A i \in DOMAIN log[s] :
             i < commitIndex[s][1] =>
             <<i, log[s][i].term>> \in CommittedEntries
------
+
+
+-------------------------------------------------------------------------------------------
 
 (**************************************************************************************************)
-(* Helper Operators                                                                               *)
+(* Spec definition                                                                                *)
 (**************************************************************************************************)
-
-
-\* The term of the last entry in a log, or 0 if the log is empty.
-LastTerm(xlog) == IF Len(xlog) = 0 THEN 0 ELSE xlog[Len(xlog)].term
-
-\* Can node 'i' currently cast a vote for node 'j'.
-CanVoteFor(i, j) == 
-    LET logOk == 
-        \/ LastTerm(log[j]) > LastTerm(log[i])
-        \/ /\ LastTerm(log[j]) = LastTerm(log[i])
-           /\ Len(log[j]) >= Len(log[i]) IN
-    /\ currentTerm[i] <= currentTerm[j]
-    /\ j # votedFor[i] 
-    /\ logOk
- 
-\* Could server 'i' win an election in the current state.
-IsElectable(i) == 
-    LET voters == {s \in Server : CanVoteFor(s, i)} IN
-        voters \in Quorum
-
-\*\* Determine which log entries are currently committed by looking
-\*\* at all servers that are electable.
-\*Committed == 
-\*    LET electable     == {s \in Server : IsElectable(s)} IN
-\*        IF electable = {} THEN {}
-\*        ELSE
-\*        LET electableLogs == {log[s] : s \in electable}
-\*            smallestLog   == CHOOSE l \in electableLogs : Len(l) = Min({Len(k) : k \in electableLogs})
-\*            matchingIndices == {i \in DOMAIN smallestLog : \A otherLog \in electableLogs : smallestLog[i] = otherLog[i]} IN
-\*            IF matchingIndices = {} 
-\*                THEN {} 
-\*                ELSE {<<i, smallestLog[i].term>> : i \in 1..Max(matchingIndices)}
-\*            
-\*\* If an entry was immediately committed at term T, then it must appear in the logs of all 
-\*\* leaders of higher terms. Uses an alternate definition of 'committed'.
-\*LeaderCompletenessAlternate == 
-\* \A <<index,term>> \in Committed :
-\* \A election \in elections:
-\*    election.eterm > term => EntryInLog(election.elog, index, term)
-
-(**************************************************************************************************)
-(* Main Actions                                                                                   *)
-(**************************************************************************************************)    
-
-\* Is it possible for log 'lj' to roll back based on the log 'li'. If this is true, it implies that
-\* log 'lj' should remove entries to become a prefix of 'li'.
-CanRollback(li, lj) == 
-    /\ Len(li) > 0 
-    /\ Len(lj) > 0
-    \* The terms of the last entries of each log do not match. The term of node i's last 
-    \* log entry is greater than that of node j's.
-    /\ li[Len(li)].term > lj[Len(lj)].term
-
-\* Returns the highest common index between two divergent logs, 'li' and 'lj'. 
-\* If there is no common index between the logs, returns 0.
-RollbackCommonPoint(li, lj) == 
-    LET commonIndices == {k \in DOMAIN li : 
-                            /\ k <= Len(lj)
-                            /\ li[k] = lj[k]} IN
-        IF commonIndices = {} THEN 0 ELSE Max(commonIndices)
-    
-
-\* Node j removes entries based against the log of node i.
-RollbackEntries(i, j) == 
-    /\ CanRollback(log[i], log[j])
-    /\ LET commonPoint == RollbackCommonPoint(log[i], log[j]) IN
-           \* If there is no common entry between log 'i' and
-           \* log 'j', then it means that the all entries of log 'j'
-           \* are divergent, and so we erase its entire log. Otherwise
-           \* we erase all log entries after the newest common entry. Note that 
-           \* if the commonPoint is '0' then SubSeq(log[i], 1, 0) will evaluate
-           \* to <<>>, the empty sequence.
-           log' = [log EXCEPT ![j] = SubSeq(log[i], 1, commonPoint)] 
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
-    
-\* This property asserts that only uncommitted entries will ever be rolled back.
-RollbackSafety == 
-    \E i,j \in Server : CanRollback(log[i], log[j]) =>
-        LET commonPoint == RollbackCommonPoint(log[i], log[j])
-            entriesToRollback == SubSeq(log[j], commonPoint + 1, Len(log[j])) IN
-            \* The entries being rolled back should NOT be committed.
-            entriesToRollback \cap CommittedEntries = {}            
-
-\* Node i gets a new log entry from node j.
-GetEntries(i, j) == 
-    /\ state[i] = Secondary
-    \* Node j must have more entries than node i.
-    /\ Len(log[j]) > Len(log[i])
-    /\ currentTerm[j] >= currentTerm[i]
-       \* log[i] is empty.
-    /\ \/ /\ Len(log[i]) = 0
-          /\ LET newEntry == log[j][1]
-                 newLog   == Append(log[i], newEntry) IN
-             /\ log' = [log EXCEPT ![i] = newLog]
-             /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
-       \* log[i] is non-empty. In this case, the entry at the last
-       \* index of node i's log must match the entry at the same index in node j's
-       \* log. This is the essential 'log consistency check'.
-       \/ /\ Len(log[i]) > 0
-          /\ log[j][Len(log[i])] = log[i][Len(log[i])]
-          /\ LET newEntry == log[j][Len(log[i]) + 1] 
-                 newLog   == Append(log[i], newEntry) IN
-                 /\ log' = [log EXCEPT ![i] = newLog]
-                 /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
-    /\ currentTerm' = [currentTerm EXCEPT ![i] = currentTerm[j]]
-    /\ UNCHANGED <<messages, state, votedFor, candidateVars, leaderVars, commitIndex>>
-
-QuorumAgreeInSameTerm(appliedEntryVal) == 
-    LET quorums == {Q \in Quorum :
-                    \* Make sure all nodes in quorum have actually applied some entries.
-                    /\ \A s \in Q : appliedEntryVal[s][1] > 0
-                    \* Make sure every applied entry in quorum has the same term.
-                    /\ \A s, t \in Q : 
-                       s # t => appliedEntryVal[s][2] = appliedEntryVal[t][2]} IN
-        IF quorums = {} THEN Nil ELSE CHOOSE x \in quorums : TRUE
-
-\* Naive (and quite possibly incorrect) approach. Calculate the commit point purely based on
-\* the values in your current 'appliedEntry' vector. Choose the highest index
-\* that is agreed upon by a majority. We are only allowed to choose a quorum
-\* whose last applied entries have the same term.
-AdvanceCommitPoint(i) == 
-    LET quorumAgree == QuorumAgreeInSameTerm(appliedEntry[i]) IN
-        /\ quorumAgree # Nil
-        \* The term of the entries in the quorum must match our current term.
-        /\ LET serverInQuorum == CHOOSE s \in quorumAgree : TRUE
-               termOfQuorum == appliedEntry[i][serverInQuorum][2] 
-               \* The minimum index of the applied entries in the quorum.
-               newCommitIndex == Min({appliedEntry[i][s][1] : s \in quorumAgree}) IN
-               /\ termOfQuorum = currentTerm[i]
-               \* We store the commit index as an <<index, term>> pair instead of just an
-               \* index, so that we can uniquely identify a committed log prefix.
-               /\ commitIndex' = [commitIndex EXCEPT ![i] = <<newCommitIndex, termOfQuorum>>]
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, log, appliedEntry>>           
-    
-\* Node i updates node j with its latest progress.
-UpdatePosition(i, j) == 
-    /\ Len(log[i]) > 0
-    \* If node 'j' gives a progress update to node 'i', it must make sure to
-    \* update the term of node 'i' with its own term, if it is higher. In a real system,
-    \* this action would occur by 'j' sending a progress update message to 'i' that includes 
-    \* the term of 'j' at the time of sending. Upon receiving the message, 'i' would update its
-    \* own term if it was smaller than the term attached to the message.
-    /\ currentTerm' = [currentTerm EXCEPT ![j] = Max({currentTerm[i], currentTerm[j]})]
-    \* Primary nodes must revert to Secondary state if they increment their local term.
-    /\ state' = [state EXCEPT ![j] = IF currentTerm[i] > currentTerm[j] THEN Secondary ELSE @]
-    /\ LET lastEntry == <<Len(log[i]), LastTerm(log[i])>> IN
-           /\ appliedEntry[j][i] # lastEntry \* Only update progress if newer.
-           /\ appliedEntry' = [appliedEntry EXCEPT ![j][i] = lastEntry] 
-    /\ UNCHANGED <<messages, votedFor, candidateVars, logVars, leaderVars, commitIndex>>           
-    
-\* Node i times out and automatically becomes a leader, if eligible.
-BecomeLeader(i) == 
-    LET voters == {s \in Server : CanVoteFor(s, i)}
-        newTerm == currentTerm[i] + 1 IN
-        /\ voters \in Quorum
-        \* Update the terms of each voter.
-        /\ currentTerm' = [s \in Server |-> IF s \in voters THEN newTerm ELSE currentTerm[s]]
-        /\ votedFor' = [s \in Server |-> IF s \in voters THEN i ELSE votedFor[s]]
-        /\ state' = [s \in Server |-> 
-                        IF s = i THEN Primary
-                        ELSE IF s \in voters THEN Secondary \* All voters should revert to secondary state.
-                        ELSE state[s]] 
-        /\ LET election == [eterm     |-> newTerm,
-                            eleader   |-> i,
-                            elog      |-> log[i],
-                            evotes    |-> voters,
-                            evoterLog |-> voterLog[i]] IN
-           elections'  = elections \cup {election}        
-        /\ UNCHANGED <<messages, logVars, candidateVars, appliedEntry>>
-        
-\* Node i, which must be a primary, handles a new client request and places the entry in its log.
-ClientRequest(i, v) == 
-    /\ state[i] = Primary
-    /\ LET entry == [term  |-> currentTerm[i],
-                     value |-> v]
-       newLog == Append(log[i], entry) IN
-       /\ log' = [log EXCEPT ![i] = newLog]
-       /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), entry.term>>]
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex>>
-
     
 InitHistoryVars == 
     /\ elections = {}
@@ -417,9 +435,11 @@ Next ==
 
 Spec == Init /\ [][Next]_vars
 
------
+-------------------------------------------------------------------------------------------
 
-\* State Constraint (used for model checking only).
+(**************************************************************************************************)
+(* State Constraint. Used for model checking only.                                                *)
+(**************************************************************************************************)
 
 MaxTerm == 4
 MaxLogLen == 3
@@ -431,6 +451,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 04 12:25:05 EDT 2018 by williamschultz
+\* Last modified Sat Aug 04 12:52:24 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
