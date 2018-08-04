@@ -461,8 +461,8 @@ Next ==
     \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)    /\ HistNext
     \/ \E s, t \in Server : GetEntries(s, t)                     /\ HistNext
     \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext
-\*    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
-\*    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
+    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
+    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
 
 Spec == Init /\ [][Next]_vars
 
@@ -472,16 +472,17 @@ Spec == Init /\ [][Next]_vars
 (* State Constraint. Used for model checking only.                                                *)
 (**************************************************************************************************)
 
-MaxTerm == 4
-MaxLogLen == 3
+CONSTANTS MaxTerm, MaxLogLen
+
 StateConstraint == \A s \in Server : 
-                    /\ currentTerm[s] <= MaxTerm
-                    /\ Len(log[s]) <= MaxLogLen
+                    /\ currentTerm[s] < MaxTerm
+                    /\ Len(log[s]) < MaxLogLen
         
-        
+MaxTermInvariant ==  \A s \in Server : currentTerm[s] <= MaxTerm    
+LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen    
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 04 13:59:06 EDT 2018 by williamschultz
+\* Last modified Sat Aug 04 17:52:40 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
