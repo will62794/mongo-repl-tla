@@ -282,7 +282,7 @@ ClientRequest(i, v) ==
 (* Correctness Properties                                                                         *)
 (**************************************************************************************************)
 
-\* The set of all log entries for a given log i.e. the set of all <<index, term>>
+\* The set of all log entries in a given log i.e. the set of all <<index, term>>
 \* pairs that appear in the log.
 LogEntries(xlog) == {<<i, xlog[i].term>> : i \in DOMAIN xlog}
 
@@ -293,39 +293,49 @@ EntryInLog(xlog, index, term) == <<index, term>> \in LogEntries(xlog)
 AllLogEntries(logSet) == UNION {LogEntries(l) : l \in logSet}      
 
 \* Determines whether an <<index, term>> entry is immediately committed, based on the
-\* current state.
+\* current state. Be careful to note that the value of this expression only depends on the current state, not the 
+\* history of states. A particular entry may be immediately committed in the current state,
+\* but not immediately committed in the next state.
 ImmediatelyCommitted(index, term) == 
     \E Q \in Quorum :
         \A q \in Q : 
             /\ currentTerm[q] = term 
             /\ EntryInLog(log[q], index, term)
 
-\* The set of all 'immediately committed' log entries in the current state. An entry is committed
-\* at a term t, so we store the entry itself along with the term at which it was committed. In general, the 
-\* "commitment term" doesn't need to match the term of the entry itself, although for immediately committed 
-\* entries, it will. It may not for prefix committed entries, though.
+\* The set of all immediately committed log entries in the current state. An entry is committed
+\* at a particular term t, so we store the entry itself along with the term at which it was committed. 
+\* In general, the "commitment term" doesn't need to match the term of the entry itself, although for 
+\* immediately committed entries, it will. It may not for prefix committed entries, though.
 AllImmediatelyCommitted == 
     LET entries == {e \in AllLogEntries(Range(log)) : ImmediatelyCommitted(e[1], e[2])} IN
     {[entry |-> e, term |-> e[2]] : e \in entries}
 
-\* The set of prefix committed entries within a log.
+\* The set of prefix committed entries.
 PrefixCommittedEntries == 
     {e \in AllLogEntries(Range(log)) :
         \E l \in Range(log) : 
             /\ EntryInLog(l, e[1], e[2])
             /\ \E c \in LogEntries(l) :
                 /\ c[1] > e[1]
-                /\ \E x \in AllImmediatelyCommitted : c = x.entry}
+                /\ \E x \in immediatelyCommitted : c = x.entry}
 
+\* The set of prefix committed entries along with the term they were committed in.
 PrefixCommittedEntriesWithTerm == 
     {   LET commitmentTerm == CHOOSE t \in 1..10 : 
             \E l \in Range(log) :
                 /\ EntryInLog(l, e[1], e[2])
                 /\ \E c \in LogEntries(l) :
                     /\ c[1] > e[1]
-                    /\ [entry |-> c, term |-> t] \in AllImmediatelyCommitted IN
+                    /\ [entry |-> c, term |-> t] \in immediatelyCommitted IN
          [entry |-> e, term |-> commitmentTerm]
         : e \in PrefixCommittedEntries}
+
+\* The set of all committed log entries up to the current state. Note that this definition depends
+\* on a history variable, 'immediatelyCommitted'. That history variable is constructed by appending the
+\* immediately committed entries at every state to a set. So, at any one state, it should store the complete
+\* set of entries that were ever immediately committed. Some entries may never be immediately committed and will
+\* only get "prefix committed". 
+CommittedEntries == immediatelyCommitted \cup PrefixCommittedEntriesWithTerm
 
 (**************************************************************************************************)
 (* There should be at most one leader per term.                                                   *)
@@ -343,8 +353,6 @@ LogMatching ==
         xlog[i].term = ylog[i].term => 
         SubSeq(xlog, 1, i) = SubSeq(ylog, 1, i)
        
-CommittedEntries == immediatelyCommitted \cup PrefixCommittedEntriesWithTerm
-
 (**************************************************************************************************)
 (* Only uncommitted entries are allowed to be deleted from logs.                                  *)
 (**************************************************************************************************)    
@@ -382,8 +390,31 @@ LearnerSafety ==
     EntryInLog(log[s], commitIndex[s][1], commitIndex[s][2]) =>
         \A i \in DOMAIN log[s] :
             i < commitIndex[s][1] =>
-            <<i, log[s][i].term>> \in CommittedEntries
+            \E c \in CommittedEntries : <<i, log[s][i].term>> = c.entry
 
+-------------------------------------------------------------------------------------------
+
+(**************************************************************************************************)
+(* "Sanity Check" Properties                                                                      *)
+(*                                                                                                *)
+(* These are not high level correctness properties of the algorithm, but important properties     *)
+(* that should hold true if we wrote the spec and the correctness properties correctly.           *)
+(**************************************************************************************************)
+
+\* The set of prefix committed entries should only ever grow. Entries should never be deleted
+\* from it.
+PrefixCommittedEntriesMonotonic == 
+    [][(PrefixCommittedEntriesWithTerm \subseteq PrefixCommittedEntriesWithTerm')]_<<vars>>
+
+\* The set of committed entries should only ever grow. Entries should never be deleted
+\* from it.
+CommittedEntriesMonotonic == 
+    [][(CommittedEntries \subseteq CommittedEntries')]_<<vars>>
+    
+\* Immediately committed entries <<index, T>> are always committed at term T.
+ImmediatelyCommittedTermMatchesLogEntryTerm == 
+    \A e \in immediatelyCommitted : e.entry[2] = e.term
+   
 
 -------------------------------------------------------------------------------------------
 
@@ -430,8 +461,8 @@ Next ==
     \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)    /\ HistNext
     \/ \E s, t \in Server : GetEntries(s, t)                     /\ HistNext
     \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext
-    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
-    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
+\*    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
+\*    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
 
 Spec == Init /\ [][Next]_vars
 
@@ -451,6 +482,6 @@ StateConstraint == \A s \in Server :
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 04 12:52:24 EDT 2018 by williamschultz
+\* Last modified Sat Aug 04 13:59:06 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
