@@ -1,1 +1,3 @@
 *.toolbox
+latex/
+.DS_Store
