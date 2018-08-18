@@ -225,10 +225,7 @@ GetEntries(i, j) ==
               newLog        == Append(log[i], newEntry) IN
               /\ log' = [log EXCEPT ![i] = newLog]
               /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
-    \* Update your term if the node you received an entry from has a higher term than you. (necessary ?)
-\*    /\ currentTerm' = [currentTerm EXCEPT ![i] = Max({currentTerm[j], currentTerm[i]})]
     /\ UNCHANGED <<state, votedFor, currentTerm, candidateVars, leaderVars, commitIndex>>
-
 
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
@@ -537,6 +534,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 18 18:53:02 EDT 2018 by williamschultz
+\* Last modified Sat Aug 18 18:54:30 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
