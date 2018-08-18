@@ -194,7 +194,6 @@ RollbackEntries(i, j) ==
            log' = [log EXCEPT ![j] = SubSeq(log[i], 1, commonPoint)] 
     /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex, matchEntry>>
        
-
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
 (*                                                                                                *)
@@ -205,7 +204,8 @@ RollbackEntries(i, j) ==
 (* from any other node, regardless of whether they are a secondary or a primary.  We only         *)
 (* stipulate that the sending node actually has a longer log than the receiver and that the log   *)
 (* consistency check passes.  This, for example, allows secondaries to fetch entries from nodes   *)
-(* with a lower term than their own, if they desire.                                              *)
+(* with a lower term than their own, if they desire.  We also don't require the receiver to       *)
+(* update its term if the sender has a higher term.                                               *)
 (**************************************************************************************************)
 GetEntries(i, j) == 
     /\ state[i] = Secondary
@@ -230,10 +230,11 @@ GetEntries(i, j) ==
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
 (*                                                                                                *)
-(* Naive (and quite possibly incorrect) approach.  Calculate the commit point purely based on the *)
-(* values in your current 'matchEntry' vector.  Choose the highest index that is agreed upon by a *)
-(* majority.  We are only allowed to choose a quorum whose last applied entries have the same     *)
-(* term.                                                                                          *)
+(* Advances the commit point on server 'i'.                                                       *)
+(*                                                                                                *)
+(* The commit point is calculated based on node i's current 'matchEntry' vector.  Choose the      *)
+(* highest index that is agreed upon by a majority.  We are only allowed to choose a quorum whose *)
+(* last applied entries have the same term.                                                       *)
 (**************************************************************************************************)
 AdvanceCommitPoint(i) == 
     LET quorumAgree == QuorumAgreeInSameTerm(matchEntry[i]) IN
@@ -252,7 +253,7 @@ AdvanceCommitPoint(i) ==
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
 (*                                                                                                *)
-(* Node 'i' updates node 'j' with its latest progress.                                            *)
+(* Node 'i' updates node 'j' with its latest log application progress.                            *)
 (**************************************************************************************************)
 UpdatePosition(i, j) == 
     /\ Len(log[i]) > 0
@@ -269,11 +270,10 @@ UpdatePosition(i, j) ==
            /\ matchEntry' = [matchEntry EXCEPT ![j][i] = lastEntry] 
     /\ UNCHANGED << votedFor, candidateVars, logVars, leaderVars, commitIndex>>           
     
-    
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
 (*                                                                                                *)
-(* Node 'i' times out and automatically becomes a leader, if eligible.                            *)
+(* Node 'i' automatically becomes a leader, if eligible.                                          *)
 (**************************************************************************************************)
 BecomeLeader(i) == 
     LET voters == {s \in Server : CanVoteFor(s, i)}
@@ -442,7 +442,7 @@ LearnerSafety ==
 \* in the absence of new client requests, but if the maximum log length of 
 \* servers is limited in a model, then logs should eventually converge, since new client
 \* requests will eventually be disallowed.
-EventuallyLogsConverge == <>[](\A s, t \in Server : s # t => log[s] = log[t])
+EventuallyLogsConverge == <>[][\A s, t \in Server : s # t => log[s] = log[t]]_vars
 
 -------------------------------------------------------------------------------------------
 
@@ -511,7 +511,7 @@ Next ==
     \/ \E s \in Server : BecomeLeader(s)                         /\ HistNext
     \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)    /\ HistNext
     \/ \E s, t \in Server : GetEntries(s, t)                     /\ HistNext
-    \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext
+\*    \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext
     \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
     \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
 
@@ -534,6 +534,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 18 18:54:30 EDT 2018 by williamschultz
+\* Last modified Sat Aug 18 19:06:45 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz

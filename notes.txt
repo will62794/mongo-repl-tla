@@ -10,6 +10,8 @@ than the _term of the committed entry_ necessarily contain the entry.
 
 [ ] Add proper type invariants
 
+[ ] Add a StateMachineSafety correctness property
+
 ---------------------------
 Model Checking Notes:
 ---------------------------
