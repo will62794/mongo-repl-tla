@@ -1,0 +1,32 @@
+---------------------------
+Todo Items:
+---------------------------
+
+[X] Add a notion of entries being "committed at a term t". For example, for prefix committed entries, the
+term of the entry itself may be different from the term at which it is committed. The "commitment term" is
+what's important for the Leader Completeness Property. That is, an entry committed at term t is guaranteed
+to appear in the logs of all future leaders with terms > t. It does not mean that all leaders with terms greater
+than the _term of the committed entry_ necessarily contain the entry.
+
+---------------------------
+Model Checking Notes:
+---------------------------
+
+August 18, 2018
+
+MaxTerm=3
+MaxLogLen=3
+57,166 distinct states found
+Depth of the complete state graph search is 18
+Finished in 7s, using 10 cores on Linux workstation
+
+MaxTerm=4
+MaxLogLen=3
+473,054 distinct states found
+Depth of the complete state graph search is 26
+Finished in 46s, using 12 cores on Linux workstation
+
+
+
+
+
