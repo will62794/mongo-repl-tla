@@ -8,6 +8,8 @@ what's important for the Leader Completeness Property. That is, an entry committ
 to appear in the logs of all future leaders with terms > t. It does not mean that all leaders with terms greater
 than the _term of the committed entry_ necessarily contain the entry.
 
+[ ] Add proper type invariants
+
 ---------------------------
 Model Checking Notes:
 ---------------------------

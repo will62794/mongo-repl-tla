@@ -1,6 +1,21 @@
 ----------------------------- MODULE MongoRepl -----------------------------
 (**************************************************************************************************)
-(* A high level specification of the MongoDB replication protocol.                                *)
+(* A high level specification of the MongoDB replication protocol, which is based on a variant of *)
+(* the Raft consensus protocol.                                                                   *)
+(*                                                                                                *)
+(* This spec models the system at a high level of abstraction.  For example, we do not explicitly *)
+(* model the network or the exchange of messages between nodes.  Instead, we model the system so  *)
+(* as to make it clear what the essential invariants to be upheld are.  Message passing between   *)
+(* servers can be considered one way to implemented a system that satisfies these invariants.     *)
+(* For example, when modeling how servers receive new entries from other nodes, we are most       *)
+(* interested in what the rules are for a server accepting a set of entries.  How the entries     *)
+(* arrived at the server is less important, but is of course a detail that would be important in  *)
+(* a real implementation.  By modeling the system in this manner, we also try to make it clear    *)
+(* what the minimal set of rules that are need to uphold particular safety properties.  For       *)
+(* example, to uphold the Log Matching property, it is not absolutely necessary that servers only *)
+(* retrieve entries from servers with terms greater than or equal to their own.  They can         *)
+(* retrieve log entries from nodes with stale terms without harming the essential correctness     *)
+(* properties of the algorithm.                                                                   *)
 (**************************************************************************************************)
 
 EXTENDS Naturals, Integers, FiniteSets, Sequences, TLC
@@ -105,6 +120,9 @@ Max(s) == CHOOSE x \in s : \A y \in s : x >= y
 \* Return the range of a given function.
 Range(f) == {f[x] : x \in DOMAIN f}
 
+\* Is a sequence empty.
+Empty(s) == Len(s) = 0
+
 -------------------------------------------------------------------------------------------
 
 (**************************************************************************************************)
@@ -173,29 +191,35 @@ RollbackEntries(i, j) ==
 (* [ACTION]                                                                                       *)
 (*                                                                                                *)
 (* Node 'i' gets a new log entry from node 'j'.                                                   *)
+(*                                                                                                *)
+(* Note that there are only a few restrictions made about the sender and receiver of this log     *)
+(* transferral.  Only secondaries fetch new logs by this means, but we allow them to get entries  *)
+(* from any other node, regardless of whether they are a secondary or a primary.  We only         *)
+(* stipulate that the sending node actually has a longer log than the receiver and that the log   *)
+(* consistency check passes.  This, for example, allows secondaries to fetch entries from nodes   *)
+(* with a lower term than their own, if they desire.                                              *)
 (**************************************************************************************************)
 GetEntries(i, j) == 
     /\ state[i] = Secondary
     \* Node j must have more entries than node i.
     /\ Len(log[j]) > Len(log[i])
-    /\ currentTerm[j] >= currentTerm[i]
-       \* log[i] is empty.
-    /\ \/ /\ Len(log[i]) = 0
-          /\ LET newEntry == log[j][1]
-                 newLog   == Append(log[i], newEntry) IN
-             /\ log' = [log EXCEPT ![i] = newLog]
-             /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
-       \* log[i] is non-empty. In this case, the entry at the last
-       \* index of node i's log must match the entry at the same index in node j's
-       \* log. This is the essential 'log consistency check'.
-       \/ /\ Len(log[i]) > 0
-          /\ log[j][Len(log[i])] = log[i][Len(log[i])]
-          /\ LET newEntry == log[j][Len(log[i]) + 1] 
-                 newLog   == Append(log[i], newEntry) IN
-                 /\ log' = [log EXCEPT ![i] = newLog]
-                 /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
-    /\ currentTerm' = [currentTerm EXCEPT ![i] = currentTerm[j]]
-    /\ UNCHANGED <<state, votedFor, candidateVars, leaderVars, commitIndex>>
+       \* Ensure that the entry at the last index of node i's log must match the entry at 
+       \* the same index in node j's log. If the log of node i is empty, then the check
+       \* trivially passes. This is the essential 'log consistency check'.
+    /\ LET logOk == IF Empty(log[i]) 
+                        THEN TRUE  
+                        ELSE log[j][Len(log[i])] = log[i][Len(log[i])] IN
+       /\ logOk \* log consistency check
+       \* If the log of node i is empty, then take the first entry from node j's log.
+       \* Otherwise take the entry following the last index of node i.
+       /\ LET newEntryIndex == IF Empty(log[i]) THEN 1 ELSE Len(log[i]) + 1 
+              newEntry      == log[j][newEntryIndex] 
+              newLog        == Append(log[i], newEntry) IN
+              /\ log' = [log EXCEPT ![i] = newLog]
+              /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
+    \* Update your term if the node you received an entry from has a higher term than you. (necessary ?)
+\*    /\ currentTerm' = [currentTerm EXCEPT ![i] = Max({currentTerm[j], currentTerm[i]})]
+    /\ UNCHANGED <<state, votedFor, currentTerm, candidateVars, leaderVars, commitIndex>>
 
 QuorumAgreeInSameTerm(matchEntryVal) == 
     LET quorums == {Q \in Quorum :
@@ -348,6 +372,15 @@ PrefixCommittedEntriesWithTerm ==
 \* set of entries that were ever immediately committed. Some entries may never be immediately committed and will
 \* only get "prefix committed". 
 CommittedEntries == immediatelyCommitted \cup PrefixCommittedEntriesWithTerm
+
+(**************************************************************************************************)
+(* The terms of every server increase monotonically.                                              *)
+(*                                                                                                *)
+(* We express this as an 'action' property.  That is, it depends on the both primed and unprimed  *)
+(* variables.                                                                                     *)
+(**************************************************************************************************)
+TermsMonotonic == 
+    [][\A s \in Server : currentTerm'[s] >= currentTerm[s]]_vars        
 
 (**************************************************************************************************)
 (* There should be at most one leader per term.                                                   *)
@@ -504,6 +537,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 18 17:53:51 EDT 2018 by williamschultz
+\* Last modified Sat Aug 18 18:46:50 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
