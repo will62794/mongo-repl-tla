@@ -109,6 +109,10 @@ Range(f) == {f[x] : x \in DOMAIN f}
 
 (**************************************************************************************************)
 (* Next state actions.                                                                            *)
+(*                                                                                                *)
+(* This section defines the core steps of the algorithm, along with some related helper           *)
+(* definitions/operators.  We annotate the main actions with an [ACTION] specifier to disinguish  *)
+(* them from auxiliary, helper operators.                                                         *)
 (**************************************************************************************************)    
 
 \* The term of the last entry in a log, or 0 if the log is empty.
@@ -148,6 +152,8 @@ RollbackCommonPoint(li, lj) ==
     
 
 (**************************************************************************************************)
+(* [ACTION]                                                                                       *)
+(*                                                                                                *)
 (* Node 'j' removes entries based against the log of node 'i'.                                    *)
 (**************************************************************************************************)
 RollbackEntries(i, j) == 
@@ -164,6 +170,8 @@ RollbackEntries(i, j) ==
        
 
 (**************************************************************************************************)
+(* [ACTION]                                                                                       *)
+(*                                                                                                *)
 (* Node 'i' gets a new log entry from node 'j'.                                                   *)
 (**************************************************************************************************)
 GetEntries(i, j) == 
@@ -199,9 +207,11 @@ QuorumAgreeInSameTerm(matchEntryVal) ==
         IF quorums = {} THEN Nil ELSE CHOOSE x \in quorums : TRUE
 
 (**************************************************************************************************)
+(* [ACTION]                                                                                       *)
+(*                                                                                                *)
 (* Naive (and quite possibly incorrect) approach.  Calculate the commit point purely based on the *)
-(* values in your current 'matchEntry' vector.  Choose the highest index that is agreed upon by *)
-(* a majority.  We are only allowed to choose a quorum whose last applied entries have the same   *)
+(* values in your current 'matchEntry' vector.  Choose the highest index that is agreed upon by a *)
+(* majority.  We are only allowed to choose a quorum whose last applied entries have the same     *)
 (* term.                                                                                          *)
 (**************************************************************************************************)
 AdvanceCommitPoint(i) == 
@@ -219,6 +229,8 @@ AdvanceCommitPoint(i) ==
     /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, matchEntry>>           
     
 (**************************************************************************************************)
+(* [ACTION]                                                                                       *)
+(*                                                                                                *)
 (* Node 'i' updates node 'j' with its latest progress.                                            *)
 (**************************************************************************************************)
 UpdatePosition(i, j) == 
@@ -238,6 +250,8 @@ UpdatePosition(i, j) ==
     
     
 (**************************************************************************************************)
+(* [ACTION]                                                                                       *)
+(*                                                                                                *)
 (* Node 'i' times out and automatically becomes a leader, if eligible.                            *)
 (**************************************************************************************************)
 BecomeLeader(i) == 
@@ -260,6 +274,8 @@ BecomeLeader(i) ==
         /\ UNCHANGED <<logVars, candidateVars, matchEntry>>
         
 (**************************************************************************************************)
+(* [ACTION]                                                                                       *)
+(*                                                                                                *)
 (* Node 'i', a primary, handles a new client request and places the entry in its log              *)
 (**************************************************************************************************)        
 ClientRequest(i, v) == 
@@ -488,6 +504,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 18 13:34:27 EDT 2018 by williamschultz
+\* Last modified Sat Aug 18 17:53:51 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
