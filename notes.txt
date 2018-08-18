@@ -26,7 +26,11 @@ MaxLogLen=3
 Depth of the complete state graph search is 26
 Finished in 46s, using 12 cores on Linux workstation
 
-
+MaxTerm=5
+MaxLogLen=3
+12,799,316 distinct states found
+Depth of the complete state graph search is 39
+Finished in 21min 36s, using 10 cores on Linux workstation
 
 
 
