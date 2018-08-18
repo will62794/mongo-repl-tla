@@ -167,7 +167,15 @@ RollbackCommonPoint(li, lj) ==
                             /\ k <= Len(lj)
                             /\ li[k] = lj[k]} IN
         IF commonIndices = {} THEN 0 ELSE Max(commonIndices)
-    
+
+QuorumAgreeInSameTerm(matchEntryVal) == 
+    LET quorums == {Q \in Quorum :
+                    \* Make sure all nodes in quorum have actually applied some entries.
+                    /\ \A s \in Q : matchEntryVal[s][1] > 0
+                    \* Make sure every applied entry in quorum has the same term.
+                    /\ \A s, t \in Q : 
+                       s # t => matchEntryVal[s][2] = matchEntryVal[t][2]} IN
+        IF quorums = {} THEN Nil ELSE CHOOSE x \in quorums : TRUE    
 
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
@@ -221,14 +229,6 @@ GetEntries(i, j) ==
 \*    /\ currentTerm' = [currentTerm EXCEPT ![i] = Max({currentTerm[j], currentTerm[i]})]
     /\ UNCHANGED <<state, votedFor, currentTerm, candidateVars, leaderVars, commitIndex>>
 
-QuorumAgreeInSameTerm(matchEntryVal) == 
-    LET quorums == {Q \in Quorum :
-                    \* Make sure all nodes in quorum have actually applied some entries.
-                    /\ \A s \in Q : matchEntryVal[s][1] > 0
-                    \* Make sure every applied entry in quorum has the same term.
-                    /\ \A s, t \in Q : 
-                       s # t => matchEntryVal[s][2] = matchEntryVal[t][2]} IN
-        IF quorums = {} THEN Nil ELSE CHOOSE x \in quorums : TRUE
 
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
@@ -537,6 +537,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 18 18:46:50 EDT 2018 by williamschultz
+\* Last modified Sat Aug 18 18:53:02 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
