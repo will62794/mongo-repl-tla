@@ -25,10 +25,6 @@ CONSTANTS RequestVoteRequest, RequestVoteResponse,
 
 \* Global variables
 
-\* A bag of records representing requests and responses sent from one server
-\* to another.
-VARIABLE messages
-
 \* A history variable used in the proof. This would not be present in an
 \* implementation. Keeps track of successful elections, including the initial logs of the
 \* leader and voters' logs. Set of functions containing various things about
@@ -88,7 +84,7 @@ candidateVars == <<votesResponded, votesGranted, voterLog>>
 
 leaderVars == <<elections>>
 
-vars == <<messages, allLogs, serverVars, candidateVars, leaderVars, logVars, appliedEntry, immediatelyCommitted>>
+vars == <<allLogs, serverVars, candidateVars, leaderVars, logVars, appliedEntry, immediatelyCommitted>>
 
 -------------------------------------------------------------------------------------------
 
@@ -164,7 +160,7 @@ RollbackEntries(i, j) ==
            \* if the commonPoint is '0' then SubSeq(log[i], 1, 0) will evaluate
            \* to <<>>, the empty sequence.
            log' = [log EXCEPT ![j] = SubSeq(log[i], 1, commonPoint)] 
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
+    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
        
 
 (**************************************************************************************************)
@@ -191,7 +187,7 @@ GetEntries(i, j) ==
                  /\ log' = [log EXCEPT ![i] = newLog]
                  /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
     /\ currentTerm' = [currentTerm EXCEPT ![i] = currentTerm[j]]
-    /\ UNCHANGED <<messages, state, votedFor, candidateVars, leaderVars, commitIndex>>
+    /\ UNCHANGED <<state, votedFor, candidateVars, leaderVars, commitIndex>>
 
 QuorumAgreeInSameTerm(appliedEntryVal) == 
     LET quorums == {Q \in Quorum :
@@ -220,7 +216,7 @@ AdvanceCommitPoint(i) ==
                \* We store the commit index as an <<index, term>> pair instead of just an
                \* index, so that we can uniquely identify a committed log prefix.
                /\ commitIndex' = [commitIndex EXCEPT ![i] = <<newCommitIndex, termOfQuorum>>]
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, log, appliedEntry>>           
+    /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, appliedEntry>>           
     
 (**************************************************************************************************)
 (* Node 'i' updates node 'j' with its latest progress.                                            *)
@@ -238,7 +234,7 @@ UpdatePosition(i, j) ==
     /\ LET lastEntry == <<Len(log[i]), LastTerm(log[i])>> IN
            /\ appliedEntry[j][i] # lastEntry \* Only update progress if newer.
            /\ appliedEntry' = [appliedEntry EXCEPT ![j][i] = lastEntry] 
-    /\ UNCHANGED <<messages, votedFor, candidateVars, logVars, leaderVars, commitIndex>>           
+    /\ UNCHANGED << votedFor, candidateVars, logVars, leaderVars, commitIndex>>           
     
     
 (**************************************************************************************************)
@@ -261,7 +257,7 @@ BecomeLeader(i) ==
                             evotes    |-> voters,
                             evoterLog |-> voterLog[i]] IN
            elections'  = elections \cup {election}        
-        /\ UNCHANGED <<messages, logVars, candidateVars, appliedEntry>>
+        /\ UNCHANGED <<logVars, candidateVars, appliedEntry>>
         
 (**************************************************************************************************)
 (* Node 'i', a primary, handles a new client request and places the entry in its log              *)
@@ -273,7 +269,7 @@ ClientRequest(i, v) ==
        newLog == Append(log[i], entry) IN
        /\ log' = [log EXCEPT ![i] = newLog]
        /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), entry.term>>]
-    /\ UNCHANGED <<messages, serverVars, candidateVars, leaderVars, commitIndex>>
+    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex>>
 
 
 -------------------------------------------------------------------------------------------
@@ -453,7 +449,6 @@ InitLogVars ==
     /\ commitIndex  = [i \in Server |-> <<0, 0>>]
     
 Init == 
-    /\ messages = [m \in {} |-> 0]
     /\ InitLogVars
     /\ InitHistoryVars
     /\ InitServerVars
@@ -493,6 +488,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 04 18:25:46 EDT 2018 by williamschultz
+\* Last modified Sat Aug 18 13:32:18 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
