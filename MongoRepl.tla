@@ -54,7 +54,7 @@ VARIABLE votedFor
 
 \* A function maintained on each server that contains a local view of how far each node think
 \* every other node has applied to in its log. Maps from server id to <<index, term>> tuple.
-VARIABLE appliedEntry
+VARIABLE matchEntry
 
 serverVars == <<currentTerm, state, votedFor>>
 
@@ -84,7 +84,7 @@ candidateVars == <<votesResponded, votesGranted, voterLog>>
 
 leaderVars == <<elections>>
 
-vars == <<allLogs, serverVars, candidateVars, leaderVars, logVars, appliedEntry, immediatelyCommitted>>
+vars == <<allLogs, serverVars, candidateVars, leaderVars, logVars, matchEntry, immediatelyCommitted>>
 
 -------------------------------------------------------------------------------------------
 
@@ -160,7 +160,7 @@ RollbackEntries(i, j) ==
            \* if the commonPoint is '0' then SubSeq(log[i], 1, 0) will evaluate
            \* to <<>>, the empty sequence.
            log' = [log EXCEPT ![j] = SubSeq(log[i], 1, commonPoint)] 
-    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex, appliedEntry>>
+    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex, matchEntry>>
        
 
 (**************************************************************************************************)
@@ -176,7 +176,7 @@ GetEntries(i, j) ==
           /\ LET newEntry == log[j][1]
                  newLog   == Append(log[i], newEntry) IN
              /\ log' = [log EXCEPT ![i] = newLog]
-             /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
+             /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
        \* log[i] is non-empty. In this case, the entry at the last
        \* index of node i's log must match the entry at the same index in node j's
        \* log. This is the essential 'log consistency check'.
@@ -185,38 +185,38 @@ GetEntries(i, j) ==
           /\ LET newEntry == log[j][Len(log[i]) + 1] 
                  newLog   == Append(log[i], newEntry) IN
                  /\ log' = [log EXCEPT ![i] = newLog]
-                 /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
+                 /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
     /\ currentTerm' = [currentTerm EXCEPT ![i] = currentTerm[j]]
     /\ UNCHANGED <<state, votedFor, candidateVars, leaderVars, commitIndex>>
 
-QuorumAgreeInSameTerm(appliedEntryVal) == 
+QuorumAgreeInSameTerm(matchEntryVal) == 
     LET quorums == {Q \in Quorum :
                     \* Make sure all nodes in quorum have actually applied some entries.
-                    /\ \A s \in Q : appliedEntryVal[s][1] > 0
+                    /\ \A s \in Q : matchEntryVal[s][1] > 0
                     \* Make sure every applied entry in quorum has the same term.
                     /\ \A s, t \in Q : 
-                       s # t => appliedEntryVal[s][2] = appliedEntryVal[t][2]} IN
+                       s # t => matchEntryVal[s][2] = matchEntryVal[t][2]} IN
         IF quorums = {} THEN Nil ELSE CHOOSE x \in quorums : TRUE
 
 (**************************************************************************************************)
 (* Naive (and quite possibly incorrect) approach.  Calculate the commit point purely based on the *)
-(* values in your current 'appliedEntry' vector.  Choose the highest index that is agreed upon by *)
+(* values in your current 'matchEntry' vector.  Choose the highest index that is agreed upon by *)
 (* a majority.  We are only allowed to choose a quorum whose last applied entries have the same   *)
 (* term.                                                                                          *)
 (**************************************************************************************************)
 AdvanceCommitPoint(i) == 
-    LET quorumAgree == QuorumAgreeInSameTerm(appliedEntry[i]) IN
+    LET quorumAgree == QuorumAgreeInSameTerm(matchEntry[i]) IN
         /\ quorumAgree # Nil
         \* The term of the entries in the quorum must match our current term.
         /\ LET serverInQuorum == CHOOSE s \in quorumAgree : TRUE
-               termOfQuorum == appliedEntry[i][serverInQuorum][2] 
+               termOfQuorum == matchEntry[i][serverInQuorum][2] 
                \* The minimum index of the applied entries in the quorum.
-               newCommitIndex == Min({appliedEntry[i][s][1] : s \in quorumAgree}) IN
+               newCommitIndex == Min({matchEntry[i][s][1] : s \in quorumAgree}) IN
                /\ termOfQuorum = currentTerm[i]
                \* We store the commit index as an <<index, term>> pair instead of just an
                \* index, so that we can uniquely identify a committed log prefix.
                /\ commitIndex' = [commitIndex EXCEPT ![i] = <<newCommitIndex, termOfQuorum>>]
-    /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, appliedEntry>>           
+    /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, matchEntry>>           
     
 (**************************************************************************************************)
 (* Node 'i' updates node 'j' with its latest progress.                                            *)
@@ -232,8 +232,8 @@ UpdatePosition(i, j) ==
     \* Primary nodes must revert to Secondary state if they increment their local term.
     /\ state' = [state EXCEPT ![j] = IF currentTerm[i] > currentTerm[j] THEN Secondary ELSE @]
     /\ LET lastEntry == <<Len(log[i]), LastTerm(log[i])>> IN
-           /\ appliedEntry[j][i] # lastEntry \* Only update progress if newer.
-           /\ appliedEntry' = [appliedEntry EXCEPT ![j][i] = lastEntry] 
+           /\ matchEntry[j][i] # lastEntry \* Only update progress if newer.
+           /\ matchEntry' = [matchEntry EXCEPT ![j][i] = lastEntry] 
     /\ UNCHANGED << votedFor, candidateVars, logVars, leaderVars, commitIndex>>           
     
     
@@ -257,7 +257,7 @@ BecomeLeader(i) ==
                             evotes    |-> voters,
                             evoterLog |-> voterLog[i]] IN
            elections'  = elections \cup {election}        
-        /\ UNCHANGED <<logVars, candidateVars, appliedEntry>>
+        /\ UNCHANGED <<logVars, candidateVars, matchEntry>>
         
 (**************************************************************************************************)
 (* Node 'i', a primary, handles a new client request and places the entry in its log              *)
@@ -268,7 +268,7 @@ ClientRequest(i, v) ==
                      value |-> v]
        newLog == Append(log[i], entry) IN
        /\ log' = [log EXCEPT ![i] = newLog]
-       /\ appliedEntry' = [appliedEntry EXCEPT ![i][i] = <<Len(newLog), entry.term>>]
+       /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), entry.term>>]
     /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex>>
 
 
@@ -438,7 +438,7 @@ InitServerVars ==
     /\ currentTerm = [i \in Server |-> 1]
     /\ state       = [i \in Server |-> Secondary]
     /\ votedFor    = [i \in Server |-> Nil]
-    /\ appliedEntry = [i \in Server |-> [j \in Server |-> <<-1,-1>>]]
+    /\ matchEntry = [i \in Server |-> [j \in Server |-> <<-1,-1>>]]
 
 InitCandidateVars == 
     /\ votesResponded = [i \in Server |-> {}]
@@ -488,6 +488,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 18 13:32:18 EDT 2018 by williamschultz
+\* Last modified Sat Aug 18 13:34:27 EDT 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
