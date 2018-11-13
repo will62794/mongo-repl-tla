@@ -1,21 +1,23 @@
 ----------------------------- MODULE MongoRepl -----------------------------
 (**************************************************************************************************)
-(* A high level specification of the MongoDB replication protocol, which is based on a variant of *)
-(* the Raft consensus protocol.                                                                   *)
+(* A high level specification of the MongoDB replication protocol, which is based on a modified   *)
+(* version of the Raft consensus protocol.                                                        *)
 (*                                                                                                *)
 (* This spec models the system at a high level of abstraction.  For example, we do not explicitly *)
 (* model the network or the exchange of messages between nodes.  Instead, we model the system so  *)
-(* as to make it clear what the essential invariants to be upheld are.  Message passing between   *)
-(* servers can be considered one way to implemented a system that satisfies these invariants.     *)
-(* For example, when modeling how servers receive new entries from other nodes, we are most       *)
-(* interested in what the rules are for a server accepting a set of entries.  How the entries     *)
-(* arrived at the server is less important, but is of course a detail that would be important in  *)
-(* a real implementation.  By modeling the system in this manner, we also try to make it clear    *)
-(* what the minimal set of rules that are need to uphold particular safety properties.  For       *)
-(* example, to uphold the Log Matching property, it is not absolutely necessary that servers only *)
-(* retrieve entries from servers with terms greater than or equal to their own.  They can         *)
-(* retrieve log entries from nodes with stale terms without harming the essential correctness     *)
-(* properties of the algorithm.                                                                   *)
+(* as to make it clear what the essential invariants to be upheld at each server are.  Message    *)
+(* passing between servers can be considered one way to implement a system that satisfies these   *)
+(* invariants.  For example, when modeling how servers receive new entries from other nodes, we   *)
+(* are most interested in what the rules are for a server accepting a set of entries.  How the    *)
+(* entries arrived at the server is considered less important, but is of course a detail that     *)
+(* would be important in a real implementation.  We also try to make it clear what the minimal    *)
+(* set of rules that are need to uphold particular safety properties.  For example, to uphold the *)
+(* Log Matching property, it is not absolutely necessary that servers only retrieve entries from  *)
+(* servers with terms greater than or equal to their own.  They can retrieve log entries from     *)
+(* nodes with stale terms without harming the essential correctness properties of the algorithm.  *)
+(*                                                                                                *)
+(* This specification also allows for the definition of precise correctness properties, which can *)
+(* be found in their own section.  .                                                              *)
 (**************************************************************************************************)
 
 EXTENDS Naturals, Integers, FiniteSets, Sequences, TLC
@@ -181,6 +183,17 @@ QuorumAgreeInSameTerm(matchEntryVal) ==
 (* [ACTION]                                                                                       *)
 (*                                                                                                *)
 (* Node 'j' removes entries based against the log of node 'i'.                                    *)
+(*                                                                                                *)
+(* The rollback procedure used in this protocol is always executed by comparing the logs of two   *)
+(* separate nodes.  By doing so, it is possible to determine if one node has a "divergent" log    *)
+(* suffix, and thus has entries in its log that are uncommitted.  The essential idea is to see if *)
+(* the last term of the entry of one log is less than the last term of the last entry of another  *)
+(* log.  In this case, the log with the lesser last term should be considered eligible for        *)
+(* rollback.  Note that the goal of this rollback procedure should be to truncate entries from a  *)
+(* log that are both uncommitted, and also only truncate entries that it knows will NEVER become  *)
+(* committed.  Of course, log entries that are written down by a primary before being replicated  *)
+(* are clearly uncommitted, but deleting them wouldn't be sensible, since it is very possible     *)
+(* those entries WILL become committed in the future.                                             *)
 (**************************************************************************************************)
 RollbackEntries(i, j) == 
     /\ CanRollback(log[i], log[j])
@@ -206,6 +219,13 @@ RollbackEntries(i, j) ==
 (* consistency check passes.  This, for example, allows secondaries to fetch entries from nodes   *)
 (* with a lower term than their own, if they desire.  We also don't require the receiver to       *)
 (* update its term if the sender has a higher term.                                               *)
+(*                                                                                                *)
+(* In MongoDB, this action is implemented by secondary nodes: they select another node to sync    *)
+(* from (their "sync source") and then fetch new entries by opening a cursor on their source's    *)
+(* oplog.  Upon retrieval of the first batch from this oplog cursor they will perform the log     *)
+(* consistency check.  After that point they are guaranteed to receive contiguous sections of     *)
+(* their sync source's oplog, until the cursor dies or they choose to switch their sync source    *)
+(* for whatever reason.                                                                           *)
 (**************************************************************************************************)
 GetEntries(i, j) == 
     /\ state[i] = Secondary
@@ -225,7 +245,81 @@ GetEntries(i, j) ==
               newLog        == Append(log[i], newEntry) IN
               /\ log' = [log EXCEPT ![i] = newLog]
               /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
-    /\ UNCHANGED <<state, votedFor, currentTerm, candidateVars, leaderVars, commitIndex>>
+    /\ UNCHANGED <<state, votedFor, currentTerm, candidateVars, leaderVars, commitIndex>>   
+    
+(**************************************************************************************************)
+(* [ACTION]                                                                                       *)
+(*                                                                                                *)
+(* Node 'i' automatically becomes a leader, if eligible.                                          *)
+(*                                                                                                *)
+(* We model an election as one atomic step.  Normally this would occur in multiple steps i.e.     *)
+(* sending out vote requests to nodes and waiting for responses.  We simplify this process by     *)
+(* simply checking if a node can become leader and then updating its state and the state of a     *)
+(* quorum of nodes who voted for it appropriately, as if a full election has occurred.            *)
+(**************************************************************************************************)
+BecomeLeader(i) == 
+    LET voters == {s \in Server : CanVoteFor(s, i)}
+        newTerm == currentTerm[i] + 1 IN
+        /\ voters \in Quorum
+        \* Update the terms of each voter.
+        /\ currentTerm' = [s \in Server |-> IF s \in voters THEN newTerm ELSE currentTerm[s]]
+        /\ votedFor' = [s \in Server |-> IF s \in voters THEN i ELSE votedFor[s]]
+        /\ state' = [s \in Server |-> 
+                        IF s = i THEN Primary
+                        ELSE IF s \in voters THEN Secondary \* All voters should revert to secondary state.
+                        ELSE state[s]] 
+        /\ LET election == [eterm     |-> newTerm,
+                            eleader   |-> i,
+                            elog      |-> log[i],
+                            evotes    |-> voters,
+                            evoterLog |-> voterLog[i]] IN
+           elections'  = elections \cup {election}        
+        /\ UNCHANGED <<logVars, candidateVars, matchEntry>>         
+  
+  
+(**************************************************************************************************)
+(* [ACTION]                                                                                       *)
+(*                                                                                                *)
+(* Node 'i' updates node 'j' with its latest log application progress.                            *)
+(*                                                                                                *)
+(* This action abstracts away the details of how this information would be passed between two     *)
+(* nodes.  In a real system, it will likely be via a message sent from one node to the other.  It *)
+(* is important to point out why we abstract away the details of an asynchronous message passing  *)
+(* system here.  In an asynchronous network, nodes can inform other nodes about their current     *)
+(* state by sending a message.  Such a message may contain some or all of the sender's local      *)
+(* state, as it was at the time the message was sent.  Once messages are sent into the network,   *)
+(* the assumption is that they can be lost, delayed arbitrarily, or duplicated.  If a message is  *)
+(* lost, we consider it no different than if the message was never sent at all.  It has no effect *)
+(* on the state of the system, and so should not affect safety at all.  If messages can be        *)
+(* delayed arbitrarily, this implies that they can be delivered to recipients in an order that is *)
+(* entirely unrelated to the order they were sent in.  One way to view this property is that when *)
+(* a message is received, there is no bound on how "stale" the message is.  The information       *)
+(* contained in it may reflect the state of a sender node as it was far in the past, and the      *)
+(* receiver node may have already received messages (and therefore learned of states) that were   *)
+(* sent after the received message.  In the case of UpdatePosition messages we have to consider   *)
+(* how a node would handle "stale" information.  If the application progress of a node moves      *)
+(* backwards, due to the receipt of stale message, the worst that could happen is that the commit *)
+(* point may also move backwards, since the local commit point on any node is computed directly   *)
+(* from the local 'matchEntry' value.  The commit point moving backwards doesn't actually violate *)
+(* any safety property.  It is technically always OK for the commit point to indicate that less   *)
+(* entries are committed than actually are.  As long as it doesn't indicate that certain entries  *)
+(* are committed that actually aren't, it is fine.                                                *)
+(**************************************************************************************************)
+UpdatePosition(i, j) == 
+    /\ Len(log[i]) > 0
+    \* If node 'j' gives a progress update to node 'i', it must make sure to
+    \* update the term of node 'i' with its own term, if it is higher. In a real system,
+    \* this action would occur by 'j' sending a progress update message to 'i' that includes 
+    \* the term of 'j' at the time of sending. Upon receiving the message, 'i' would update its
+    \* own term if it was smaller than the term attached to the message.
+    /\ currentTerm' = [currentTerm EXCEPT ![j] = Max({currentTerm[i], currentTerm[j]})]
+    \* Primary nodes must revert to Secondary state if they increment their local term.
+    /\ state' = [state EXCEPT ![j] = IF currentTerm[i] > currentTerm[j] THEN Secondary ELSE @]
+    /\ LET lastEntry == <<Len(log[i]), LastTerm(log[i])>> IN
+           /\ matchEntry[j][i] # lastEntry \* Only update progress if newer.
+           /\ matchEntry' = [matchEntry EXCEPT ![j][i] = lastEntry] 
+    /\ UNCHANGED << votedFor, candidateVars, logVars, leaderVars, commitIndex>>        
+
 
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
@@ -248,56 +342,13 @@ AdvanceCommitPoint(i) ==
                \* We store the commit index as an <<index, term>> pair instead of just an
                \* index, so that we can uniquely identify a committed log prefix.
                /\ commitIndex' = [commitIndex EXCEPT ![i] = <<newCommitIndex, termOfQuorum>>]
-    /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, matchEntry>>           
-    
-(**************************************************************************************************)
-(* [ACTION]                                                                                       *)
-(*                                                                                                *)
-(* Node 'i' updates node 'j' with its latest log application progress.                            *)
-(**************************************************************************************************)
-UpdatePosition(i, j) == 
-    /\ Len(log[i]) > 0
-    \* If node 'j' gives a progress update to node 'i', it must make sure to
-    \* update the term of node 'i' with its own term, if it is higher. In a real system,
-    \* this action would occur by 'j' sending a progress update message to 'i' that includes 
-    \* the term of 'j' at the time of sending. Upon receiving the message, 'i' would update its
-    \* own term if it was smaller than the term attached to the message.
-    /\ currentTerm' = [currentTerm EXCEPT ![j] = Max({currentTerm[i], currentTerm[j]})]
-    \* Primary nodes must revert to Secondary state if they increment their local term.
-    /\ state' = [state EXCEPT ![j] = IF currentTerm[i] > currentTerm[j] THEN Secondary ELSE @]
-    /\ LET lastEntry == <<Len(log[i]), LastTerm(log[i])>> IN
-           /\ matchEntry[j][i] # lastEntry \* Only update progress if newer.
-           /\ matchEntry' = [matchEntry EXCEPT ![j][i] = lastEntry] 
-    /\ UNCHANGED << votedFor, candidateVars, logVars, leaderVars, commitIndex>>           
-    
-(**************************************************************************************************)
-(* [ACTION]                                                                                       *)
-(*                                                                                                *)
-(* Node 'i' automatically becomes a leader, if eligible.                                          *)
-(**************************************************************************************************)
-BecomeLeader(i) == 
-    LET voters == {s \in Server : CanVoteFor(s, i)}
-        newTerm == currentTerm[i] + 1 IN
-        /\ voters \in Quorum
-        \* Update the terms of each voter.
-        /\ currentTerm' = [s \in Server |-> IF s \in voters THEN newTerm ELSE currentTerm[s]]
-        /\ votedFor' = [s \in Server |-> IF s \in voters THEN i ELSE votedFor[s]]
-        /\ state' = [s \in Server |-> 
-                        IF s = i THEN Primary
-                        ELSE IF s \in voters THEN Secondary \* All voters should revert to secondary state.
-                        ELSE state[s]] 
-        /\ LET election == [eterm     |-> newTerm,
-                            eleader   |-> i,
-                            elog      |-> log[i],
-                            evotes    |-> voters,
-                            evoterLog |-> voterLog[i]] IN
-           elections'  = elections \cup {election}        
-        /\ UNCHANGED <<logVars, candidateVars, matchEntry>>
+    /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, matchEntry>>  
+
         
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
 (*                                                                                                *)
-(* Node 'i', a primary, handles a new client request and places the entry in its log              *)
+(* Node 'i', a primary, handles a new client request and places the entry in its log.             *)
 (**************************************************************************************************)        
 ClientRequest(i, v) == 
     /\ state[i] = Primary
@@ -307,7 +358,6 @@ ClientRequest(i, v) ==
        /\ log' = [log EXCEPT ![i] = newLog]
        /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), entry.term>>]
     /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex>>
-
 
 -------------------------------------------------------------------------------------------
 
@@ -369,6 +419,19 @@ PrefixCommittedEntriesWithTerm ==
 \* set of entries that were ever immediately committed. Some entries may never be immediately committed and will
 \* only get "prefix committed". 
 CommittedEntries == immediatelyCommitted \cup PrefixCommittedEntriesWithTerm
+
+\* Is 'xlog' a prefix of 'ylog'.
+IsPrefix(xlog, ylog) == 
+    /\ Len(xlog) <= Len(ylog)
+    /\ xlog = SubSeq(ylog, 1, Len(xlog))
+
+\* If two logs have the same last log entry term, then one is a prefix of the other. (Will is trying to see if 
+\* this is actually true).
+LastTermsEquivalentImplyPrefixes == 
+    \A xlog, ylog \in allLogs :
+        LastTerm(xlog) = LastTerm(ylog) =>
+        IsPrefix(xlog, ylog) \/ IsPrefix(ylog, xlog)
+
 
 (**************************************************************************************************)
 (* The terms of every server increase monotonically.                                              *)
@@ -511,9 +574,9 @@ Next ==
     \/ \E s \in Server : BecomeLeader(s)                         /\ HistNext
     \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)    /\ HistNext
     \/ \E s, t \in Server : GetEntries(s, t)                     /\ HistNext
-\*    \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext
-    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
-    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
+    \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext
+\*    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
+\*    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
 
 Spec == Init /\ [][Next]_vars /\ WF_vars(Next)
 
@@ -534,6 +597,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Aug 18 19:06:45 EDT 2018 by williamschultz
+\* Last modified Mon Nov 12 21:36:50 EST 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz

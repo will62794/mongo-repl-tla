@@ -12,6 +12,11 @@ than the _term of the committed entry_ necessarily contain the entry.
 
 [ ] Add a StateMachineSafety correctness property
 
+[ ] Can GetEntries just retrieve entries from ANY log in 'allLogs'? This would be a very generalized
+form of log retrieval i.e. saying that a node can get entries from any state in the past as long as
+Log Matching is upheld.
+
+
 ---------------------------
 Model Checking Notes:
 ---------------------------
