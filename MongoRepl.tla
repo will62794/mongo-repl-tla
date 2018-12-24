@@ -216,9 +216,10 @@ RollbackEntries(i, j) ==
 (* transferral.  Only secondaries fetch new logs by this means, but we allow them to get entries  *)
 (* from any other node, regardless of whether they are a secondary or a primary.  We only         *)
 (* stipulate that the sending node actually has a longer log than the receiver and that the log   *)
-(* consistency check passes.  This, for example, allows secondaries to fetch entries from nodes   *)
-(* with a lower term than their own, if they desire.  We also don't require the receiver to       *)
-(* update its term if the sender has a higher term.                                               *)
+(* consistency check passes.  In other words, the receiver's log must be a prefix of the sender's *)
+(* log, at the time entries are sent.  This, for example, allows secondaries to fetch entries     *)
+(* from nodes with a lower term than their own, if they desire.  We also don't require the        *)
+(* receiver to update its term if the sender has a higher term.                                   *)
 (*                                                                                                *)
 (* In MongoDB, this action is implemented by secondary nodes: they select another node to sync    *)
 (* from (their "sync source") and then fetch new entries by opening a cursor on their source's    *)
@@ -575,6 +576,7 @@ Next ==
     \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)    /\ HistNext
     \/ \E s, t \in Server : GetEntries(s, t)                     /\ HistNext
     \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext
+\*    Optionally disable learner protocol actions.
 \*    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
 \*    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
 
@@ -597,6 +599,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Mon Nov 12 21:36:50 EST 2018 by williamschultz
+\* Last modified Mon Dec 24 10:13:06 EST 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
