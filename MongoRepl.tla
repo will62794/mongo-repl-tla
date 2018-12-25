@@ -38,9 +38,9 @@ CONSTANTS Nil
 \*CONSTANTS RequestVoteRequest, RequestVoteResponse,
 \*          AppendEntriesRequest, AppendEntriesResponse
 
--------------------------------------------------------------------------------------------
-
-\* Global variables
+(**************************************************************************************************)
+(* Global variables                                                                               *)
+(**************************************************************************************************)
 
 \* A history variable used in the proof. This would not be present in an
 \* implementation. Keeps track of successful elections, including the initial logs of the
@@ -55,9 +55,11 @@ VARIABLE allLogs
 \* Set of all immediately committed <<index, term>> log entry pairs.
 VARIABLE immediatelyCommitted
 
--------------------------------------------------------------------------------------------
-
-\* The following variables are all per server (functions with domain Server).
+(**************************************************************************************************)
+(* Per server variables.                                                                          *)
+(*                                                                                                *)
+(* These are all functions with domain Server.                                                    *)
+(**************************************************************************************************)
 
 \* The server's term number.
 VARIABLE currentTerm
@@ -599,6 +601,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Tue Dec 25 14:47:54 EST 2018 by williamschultz
+\* Last modified Tue Dec 25 14:51:06 EST 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
