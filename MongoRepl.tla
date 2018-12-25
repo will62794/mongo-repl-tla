@@ -35,8 +35,8 @@ CONSTANTS Secondary, Candidate, Primary
 CONSTANTS Nil
 
 \* Message types:
-CONSTANTS RequestVoteRequest, RequestVoteResponse,
-          AppendEntriesRequest, AppendEntriesResponse
+\*CONSTANTS RequestVoteRequest, RequestVoteResponse,
+\*          AppendEntriesRequest, AppendEntriesResponse
 
 -------------------------------------------------------------------------------------------
 
@@ -599,6 +599,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Mon Dec 24 10:13:06 EST 2018 by williamschultz
+\* Last modified Tue Dec 25 14:47:54 EST 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
