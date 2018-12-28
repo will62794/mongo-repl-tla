@@ -42,6 +42,8 @@ CONSTANTS Nil
 (* Global variables                                                                               *)
 (**************************************************************************************************)
 
+VARIABLE messages
+
 \* A history variable used in the proof. This would not be present in an
 \* implementation. Keeps track of successful elections, including the initial logs of the
 \* leader and voters' logs. Set of functions containing various things about
@@ -103,7 +105,7 @@ candidateVars == <<votesResponded, votesGranted, voterLog>>
 
 leaderVars == <<elections>>
 
-vars == <<allLogs, serverVars, candidateVars, leaderVars, logVars, matchEntry, immediatelyCommitted>>
+vars == <<allLogs, serverVars, candidateVars, leaderVars, logVars, matchEntry, immediatelyCommitted, messages>>
 
 -------------------------------------------------------------------------------------------
 
@@ -207,21 +209,18 @@ RollbackEntries(i, j) ==
            \* if the commonPoint is '0' then SubSeq(log[i], 1, 0) will evaluate
            \* to <<>>, the empty sequence.
            log' = [log EXCEPT ![j] = SubSeq(log[i], 1, commonPoint)] 
-    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex, matchEntry>>
+    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex, matchEntry, messages>>
        
 (**************************************************************************************************)
-(* [ACTION]                                                                                       *)
+(* We model a generalized form of log transferral between nodes.  Any node can send log entries   *)
+(* to any other node.  We reduce "pull-based" log retrieval to just the arbitrary sending of log  *)
+(* entries.  That is, a request for new entries sent from node i to node j is simply modeled as   *)
+(* node j spontaneously sending out new log entries.  Any node can then receive these log entries *)
+(* and append them if they pass the consistency check i.e.  if their log is a prefix of the       *)
+(* sender's log at the time the entries were sent.                                                *)
 (*                                                                                                *)
-(* Node 'i' gets a new log entry from node 'j'.                                                   *)
-(*                                                                                                *)
-(* Note that there are only a few restrictions made about the sender and receiver of this log     *)
-(* transferral.  Only secondaries fetch new logs by this means, but we allow them to get entries  *)
-(* from any other node, regardless of whether they are a secondary or a primary.  We only         *)
-(* stipulate that the sending node actually has a longer log than the receiver and that the log   *)
-(* consistency check passes.  In other words, the receiver's log must be a prefix of the sender's *)
-(* log, at the time entries are sent.  This, for example, allows secondaries to fetch entries     *)
-(* from nodes with a lower term than their own, if they desire.  We also don't require the        *)
-(* receiver to update its term if the sender has a higher term.                                   *)
+(* There are few restrictions made about the sender and receiver of this log transferral.  For    *)
+(* example, we don't require the receiver to update its term if the sender has a higher term.     *)
 (*                                                                                                *)
 (* In MongoDB, this action is implemented by secondary nodes: they select another node to sync    *)
 (* from (their "sync source") and then fetch new entries by opening a cursor on their source's    *)
@@ -230,25 +229,40 @@ RollbackEntries(i, j) ==
 (* their sync source's oplog, until the cursor dies or they choose to switch their sync source    *)
 (* for whatever reason.                                                                           *)
 (**************************************************************************************************)
-GetEntries(i, j) == 
-    /\ state[i] = Secondary
-    \* Node j must have more entries than node i.
-    /\ Len(log[j]) > Len(log[i])
-       \* Ensure that the entry at the last index of node i's log must match the entry at 
-       \* the same index in node j's log. If the log of node i is empty, then the check
-       \* trivially passes. This is the essential 'log consistency check'.
-    /\ LET logOk == IF Empty(log[i]) 
-                        THEN TRUE  
-                        ELSE log[j][Len(log[i])] = log[i][Len(log[i])] IN
-       /\ logOk \* log consistency check
-       \* If the log of node i is empty, then take the first entry from node j's log.
-       \* Otherwise take the entry following the last index of node i.
-       /\ LET newEntryIndex == IF Empty(log[i]) THEN 1 ELSE Len(log[i]) + 1 
-              newEntry      == log[j][newEntryIndex] 
-              newLog        == Append(log[i], newEntry) IN
-              /\ log' = [log EXCEPT ![i] = newLog]
-              /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
-    /\ UNCHANGED <<state, votedFor, currentTerm, candidateVars, leaderVars, commitIndex>>   
+
+
+(**************************************************************************************************)
+(* [ACTION]                                                                                       *)
+(*                                                                                                *)
+(* Node i sends out log entries.  Sends its entire log, for simplicity.  This message can be      *)
+(* received by any other node.  This would likely be implemented as a node first sending out a    *)
+(* GetEntries request and a node receiving it and responding with logs.  We abstract this a bit   *)
+(* by saying that nodes can send out log entries at any time, to any node.                        *)
+(**************************************************************************************************)
+SendEntries(i) == 
+    /\ messages' = messages \cup {[type |-> "SendEntries", fullLog |-> log[i]]}
+    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, logVars, matchEntry>>
+
+(**************************************************************************************************)
+(* [ACTION]                                                                                       *)
+(*                                                                                                *)
+(* Node i processes a SendEntries message.  Appends a new entry from the log in the message if    *)
+(* the consistency check passes.                                                                  *)
+(**************************************************************************************************)
+HandleSendEntries(i) == 
+    \E m \in messages : 
+        \* Necessary pre-condition?
+        \* /\ state[i] = "Secondary"
+        /\ m.type = "SendEntries"
+        /\ Len(m.fullLog) > Len(log[i])
+        \* Log consistency check.
+        /\ IF Len(log[i]) = 0 THEN TRUE
+           ELSE LastTerm(log[i]) = m.fullLog[Len(log[i])].term
+        \* Append one new entry. 
+        /\ LET newEntry == m.fullLog[Len(log[i]) + 1] IN
+           log' = [log EXCEPT ![i] = Append(log[i], newEntry)]
+        /\ messages' = messages \ {m}
+        /\ UNCHANGED <<state, votedFor, currentTerm, candidateVars, leaderVars, commitIndex, matchEntry>>
     
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
@@ -277,7 +291,7 @@ BecomeLeader(i) ==
                             evotes    |-> voters,
                             evoterLog |-> voterLog[i]] IN
            elections'  = elections \cup {election}        
-        /\ UNCHANGED <<logVars, candidateVars, matchEntry>>         
+        /\ UNCHANGED <<logVars, candidateVars, matchEntry, messages>>         
   
   
 (**************************************************************************************************)
@@ -321,7 +335,7 @@ UpdatePosition(i, j) ==
     /\ LET lastEntry == <<Len(log[i]), LastTerm(log[i])>> IN
            /\ matchEntry[j][i] # lastEntry \* Only update progress if newer.
            /\ matchEntry' = [matchEntry EXCEPT ![j][i] = lastEntry] 
-    /\ UNCHANGED << votedFor, candidateVars, logVars, leaderVars, commitIndex>>        
+    /\ UNCHANGED << votedFor, candidateVars, logVars, leaderVars, commitIndex, messages>>        
 
 
 (**************************************************************************************************)
@@ -345,7 +359,7 @@ AdvanceCommitPoint(i) ==
                \* We store the commit index as an <<index, term>> pair instead of just an
                \* index, so that we can uniquely identify a committed log prefix.
                /\ commitIndex' = [commitIndex EXCEPT ![i] = <<newCommitIndex, termOfQuorum>>]
-    /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, matchEntry>>  
+    /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, matchEntry, messages>>  
 
         
 (**************************************************************************************************)
@@ -360,7 +374,7 @@ ClientRequest(i, v) ==
        newLog == Append(log[i], entry) IN
        /\ log' = [log EXCEPT ![i] = newLog]
        /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), entry.term>>]
-    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex>>
+    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex, messages>>
 
 -------------------------------------------------------------------------------------------
 
@@ -565,6 +579,7 @@ Init ==
     /\ InitHistoryVars
     /\ InitServerVars
     /\ InitCandidateVars
+    /\ messages = {}
 
 \* Next state predicate for history and proof variables. We (unfortunately) add it to every next-state disjunct
 \* instead of adding it as a conjunct with the entire next-state relation because it makes for clearer TLC 
@@ -576,8 +591,8 @@ HistNext ==
 Next == 
     \/ \E s \in Server : BecomeLeader(s)                         /\ HistNext
     \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)    /\ HistNext
-    \/ \E s, t \in Server : GetEntries(s, t)                     /\ HistNext
-    \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext
+    \/ \E s, t \in Server : SendEntries(s)                       /\ HistNext
+    \/ \E s, t \in Server : HandleSendEntries(s)                 /\ HistNext
 \*    Optionally disable learner protocol actions.
 \*    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
 \*    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
@@ -601,6 +616,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Tue Dec 25 14:51:06 EST 2018 by williamschultz
+\* Last modified Thu Dec 27 23:49:34 EST 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
