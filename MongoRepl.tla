@@ -38,6 +38,9 @@ CONSTANTS Nil
 \*CONSTANTS RequestVoteRequest, RequestVoteResponse,
 \*          AppendEntriesRequest, AppendEntriesResponse
 
+\* Optionally disable/enable these protocols by setting these constants to TRUE or FALSE.
+CONSTANT EnableLearnerProtocol, EnableRollbackProtocol
+
 (**************************************************************************************************)
 (* Global variables                                                                               *)
 (**************************************************************************************************)
@@ -251,8 +254,7 @@ SendEntries(i) ==
 (**************************************************************************************************)
 HandleSendEntries(i) == 
     \E m \in messages : 
-        \* Necessary pre-condition?
-        \* /\ state[i] = "Secondary"
+        /\ state[i] = Secondary
         /\ m.type = "SendEntries"
         /\ Len(m.fullLog) > Len(log[i])
         \* Log consistency check.
@@ -561,7 +563,7 @@ InitHistoryVars ==
     /\ immediatelyCommitted = {}
     
 InitServerVars == 
-    /\ currentTerm = [i \in Server |-> 1]
+    /\ currentTerm = [i \in Server |-> 0]
     /\ state       = [i \in Server |-> Secondary]
     /\ votedFor    = [i \in Server |-> Nil]
     /\ matchEntry = [i \in Server |-> [j \in Server |-> <<-1,-1>>]]
@@ -593,9 +595,9 @@ Next ==
     \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)    /\ HistNext
     \/ \E s, t \in Server : SendEntries(s)                       /\ HistNext
     \/ \E s, t \in Server : HandleSendEntries(s)                 /\ HistNext
-\*    Optionally disable learner protocol actions.
-\*    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
-\*    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
+    \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext /\ EnableRollbackProtocol   
+    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext /\ EnableLearnerProtocol
+    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext /\ EnableLearnerProtocol
 
 Spec == Init /\ [][Next]_vars /\ WF_vars(Next)
 
@@ -616,6 +618,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Thu Dec 27 23:49:34 EST 2018 by williamschultz
+\* Last modified Fri Dec 28 19:37:33 EST 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
