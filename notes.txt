@@ -41,5 +41,21 @@ MaxLogLen=3
 Depth of the complete state graph search is 39
 Finished in 21min 36s, using 10 cores on Linux workstation
 
+---------------------------
+Journal
+---------------------------
+
+> December 29, 2018 <
+
+Added the ability to explicitly disable/enable the learner and/or rollback protocols
+by setting the value of a CONSTANT in the spec. This allows different models to turn these protocols
+on or off. Experimenting with model checking the core protocol + rollback protocol
+to check all key safety properties.
+
+Discovered bug in spec where LogMatching is violated if we forget to limit RollbackEntries action to 
+only occur on secondaries. Should add a LeaderAppendOnly safety property.
+
+
+
 
 

@@ -203,6 +203,7 @@ QuorumAgreeInSameTerm(matchEntryVal) ==
 (* those entries WILL become committed in the future.                                             *)
 (**************************************************************************************************)
 RollbackEntries(i, j) == 
+    /\ state[j] = Secondary \* Primaries can only append to their logs.
     /\ CanRollback(log[i], log[j])
     /\ LET commonPoint == RollbackCommonPoint(log[i], log[j]) IN
            \* If there is no common entry between log 'i' and
@@ -466,6 +467,12 @@ TermsMonotonic ==
 (**************************************************************************************************)
 ElectionSafety == \A e1, e2 \in elections: 
                     e1.eterm = e2.eterm => e1.eleader = e2.eleader
+                    
+(**************************************************************************************************)
+(* Leader logs should only ever grow.  This is defined as a temporal property i.e.  it depends on *)
+(* the current and next state.                                                                    *)
+(**************************************************************************************************)                    
+LeaderAppendOnly == [][\A s \in Server : state[s] = Primary => Len(log'[s]) >= Len(log[s])]_vars
 
 (**************************************************************************************************)
 (* An <<index, term>> pair should uniquely identify a log prefix.                                 *)
@@ -618,6 +625,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Fri Dec 28 19:37:33 EST 2018 by williamschultz
+\* Last modified Sat Dec 29 12:16:07 EST 2018 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
