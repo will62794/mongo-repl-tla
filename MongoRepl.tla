@@ -3,21 +3,8 @@
 (* A high level specification of the MongoDB replication protocol, which is based on a modified   *)
 (* version of the Raft consensus protocol.                                                        *)
 (*                                                                                                *)
-(* This spec models the system at a high level of abstraction.  For example, we do not explicitly *)
-(* model the network or the exchange of messages between nodes.  Instead, we model the system so  *)
-(* as to make it clear what the essential invariants to be upheld at each server are.  Message    *)
-(* passing between servers can be considered one way to implement a system that satisfies these   *)
-(* invariants.  For example, when modeling how servers receive new entries from other nodes, we   *)
-(* are most interested in what the rules are for a server accepting a set of entries.  How the    *)
-(* entries arrived at the server is considered less important, but is of course a detail that     *)
-(* would be important in a real implementation.  We also try to make it clear what the minimal    *)
-(* set of rules that are need to uphold particular safety properties.  For example, to uphold the *)
-(* Log Matching property, it is not absolutely necessary that servers only retrieve entries from  *)
-(* servers with terms greater than or equal to their own.  They can retrieve log entries from     *)
-(* nodes with stale terms without harming the essential correctness properties of the algorithm.  *)
-(*                                                                                                *)
-(* This specification also allows for the definition of precise correctness properties, which can *)
-(* be found in their own section.  .                                                              *)
+(* This specification allows for the definition of precise correctness properties, which can be   *)
+(* found in their own section.                                                                    *)
 (**************************************************************************************************)
 
 EXTENDS Naturals, Integers, FiniteSets, Sequences, TLC
@@ -624,6 +611,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jan 02 10:58:29 EST 2019 by williamschultz
+\* Last modified Wed Jan 02 11:10:41 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
