@@ -295,8 +295,7 @@ BecomeLeader(i) ==
                             evoterLog |-> voterLog[i]] IN
            elections'  = elections \cup {election}        
         /\ UNCHANGED <<logVars, candidateVars, matchEntry, messages>>         
-  
-  
+
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
 (*                                                                                                *)
@@ -617,14 +616,14 @@ Spec == Init /\ [][Next]_vars /\ WF_vars(Next)
 CONSTANTS MaxTerm, MaxLogLen
 
 StateConstraint == \A s \in Server : 
-                    /\ currentTerm[s] < MaxTerm
-                    /\ Len(log[s]) < MaxLogLen
+                    /\ currentTerm[s] <= MaxTerm
+                    /\ Len(log[s]) <= MaxLogLen
         
 MaxTermInvariant ==  \A s \in Server : currentTerm[s] <= MaxTerm    
 LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen    
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Dec 29 12:16:07 EST 2018 by williamschultz
+\* Last modified Wed Jan 02 10:58:29 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz

@@ -45,7 +45,7 @@ Finished in 21min 36s, using 10 cores on Linux workstation
 Journal
 ---------------------------
 
-> December 29, 2018 <
+* December 29, 2018 
 
 Added the ability to explicitly disable/enable the learner and/or rollback protocols
 by setting the value of a CONSTANT in the spec. This allows different models to turn these protocols
@@ -55,7 +55,10 @@ to check all key safety properties.
 Discovered bug in spec where LogMatching is violated if we forget to limit RollbackEntries action to 
 only occur on secondaries. Should add a LeaderAppendOnly safety property.
 
+* January 1, 2019
 
+To reduce model checking state space, don't need to send an empty log in the SendEntries action. I think
+this can be added as an optimization in the model, not in the spec though.
 
 
 
