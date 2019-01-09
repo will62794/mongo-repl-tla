@@ -95,7 +95,10 @@ candidateVars == <<votesResponded, votesGranted, voterLog>>
 
 leaderVars == <<elections>>
 
-vars == <<allLogs, serverVars, candidateVars, leaderVars, logVars, matchEntry, immediatelyCommitted, messages>>
+\* all non-history variables:
+\* <<messages,currentTerm,elections,matchEntry,state,votedFor,log,commitIndex,votesResponded,votesGranted,voterLog>>
+varsNonHistory == <<candidateVars, serverVars, leaderVars, logVars, matchEntry, messages>>
+vars == <<allLogs, immediatelyCommitted, varsNonHistory>>
 
 -------------------------------------------------------------------------------------------
 
@@ -132,14 +135,14 @@ Empty(s) == Len(s) = 0
 \* The term of the last entry in a log, or 0 if the log is empty.
 LastTerm(xlog) == IF Len(xlog) = 0 THEN 0 ELSE xlog[Len(xlog)].term
 
-\* Can node 'i' currently cast a vote for node 'j'.
-CanVoteFor(i, j) == 
+\* Can node 'i' currently cast a vote for a node based on a received vote request.
+CanVoteFor(i, voteRequest) == 
     LET logOk == 
-        \/ LastTerm(log[j]) > LastTerm(log[i])
-        \/ /\ LastTerm(log[j]) = LastTerm(log[i])
-           /\ Len(log[j]) >= Len(log[i]) IN
-    /\ currentTerm[i] <= currentTerm[j]
-    /\ j # votedFor[i] 
+        \/ voteRequest.mlastLogTerm > LastTerm(log[i])
+        \/ /\ voteRequest.mlastLogTerm = LastTerm(log[i])
+           /\ voteRequest.mlastLogIndex >= Len(log[i]) IN
+    /\ voteRequest.mterm >= currentTerm[i]
+    /\ votedFor[i] = Nil
     /\ logOk
  
 \* Could server 'i' win an election in the current state.
@@ -264,25 +267,97 @@ HandleSendEntries(i) ==
 (* simply checking if a node can become leader and then updating its state and the state of a     *)
 (* quorum of nodes who voted for it appropriately, as if a full election has occurred.            *)
 (**************************************************************************************************)
-BecomeLeader(i) == 
-    LET voters == {s \in Server : CanVoteFor(s, i)}
-        newTerm == currentTerm[i] + 1 IN
-        /\ voters \in Quorum
-        \* Update the terms of each voter.
-        /\ currentTerm' = [s \in Server |-> IF s \in voters THEN newTerm ELSE currentTerm[s]]
-        /\ votedFor' = [s \in Server |-> IF s \in voters THEN i ELSE votedFor[s]]
-        /\ state' = [s \in Server |-> 
-                        IF s = i THEN Primary
-                        ELSE IF s \in voters THEN Secondary \* All voters should revert to secondary state.
-                        ELSE state[s]] 
-        /\ LET election == [eterm     |-> newTerm,
-                            eleader   |-> i,
-                            elog      |-> log[i],
-                            evotes    |-> voters,
-                            evoterLog |-> voterLog[i]] IN
-           elections'  = elections \cup {election}        
-        /\ UNCHANGED <<logVars, candidateVars, matchEntry, messages>>         
+\*BecomeLeader(i) == 
+\*    LET voters == {s \in Server : CanVoteFor(s, i)}
+\*        newTerm == currentTerm[i] + 1 IN
+\*        /\ voters \in Quorum
+\*        \* Update the terms of each voter.
+\*        /\ currentTerm' = [s \in Server |-> IF s \in voters THEN newTerm ELSE currentTerm[s]]
+\*        /\ votedFor' = [s \in Server |-> IF s \in voters THEN i ELSE votedFor[s]]
+\*        /\ state' = [s \in Server |-> 
+\*                        IF s = i THEN Primary
+\*                        ELSE IF s \in voters THEN Secondary \* All voters should revert to secondary state.
+\*                        ELSE state[s]] 
+\*        /\ LET election == [eterm     |-> newTerm,
+\*                            eleader   |-> i,
+\*                            elog      |-> log[i],
+\*                            evotes    |-> voters,
+\*                            evoterLog |-> voterLog[i]] IN
+\*           elections'  = elections \cup {election}        
+\*        /\ UNCHANGED <<logVars, candidateVars, matchEntry, messages>> 
+     
+\* Server i becomes a primary.
+BecomePrimary(i) == 
+    /\ state[i] = Candidate
+    /\ votesGranted[i] \in Quorum
+    /\ state'      = [state EXCEPT ![i] = Primary]
+    /\ matchEntry' = [matchEntry EXCEPT ![i] = [j \in Server |-> Nil]]
+    /\ elections'  = elections \cup
+                         {[eterm     |-> currentTerm[i],
+                           eleader   |-> i,
+                           elog      |-> log[i],
+                           evotes    |-> votesGranted[i],
+                           evoterLog |-> voterLog[i]]}        
+    /\ UNCHANGED <<messages,currentTerm,votedFor,log,commitIndex,votesResponded,votesGranted,voterLog>>
 
+\* Server i times out and starts a new election.
+Timeout(i) == 
+    /\ state[i] \in {Secondary, Candidate}
+    /\ state' = [state EXCEPT ![i] = Candidate]
+    /\ currentTerm' = [currentTerm EXCEPT ![i] = currentTerm[i] + 1]
+    \* Vote for yourself immediately.
+    /\ votedFor' = [votedFor EXCEPT ![i] = i] 
+    /\ votesResponded' = [votesResponded EXCEPT ![i] = {i}]
+    /\ votesGranted'   = [votesGranted EXCEPT ![i] = {i}]
+    /\ voterLog'       = [voterLog EXCEPT ![i] =  (i :> log[i])]  
+    /\ UNCHANGED <<messages,elections,matchEntry,log,commitIndex>>
+
+\* Candidate i sends j a RequestVote request.
+RequestVote(i, j) ==
+    /\ state[i] = Candidate
+    /\ j \notin votesResponded[i]
+    /\ LET msg == [ type         |-> "RequestVoteRequest",
+                    mterm         |-> currentTerm[i],
+                    mlastLogTerm  |-> LastTerm(log[i]),
+                    mlastLogIndex |-> Len(log[i]),
+                    msource       |-> i,
+                    mdest         |-> j] IN
+       messages' = messages \cup {msg}
+    /\ UNCHANGED <<currentTerm,elections,matchEntry,state,votedFor,log,commitIndex,votesResponded,votesGranted,voterLog>>
+
+\* Server i receives a RequestVote request from server j.
+HandleRequestVoteRequest(i, j) == 
+    \E m \in messages:
+        /\ m.type = "RequestVoteRequest"
+        /\ m.mdest = i
+        /\ m.msource = j
+        /\ CanVoteFor(i, m)
+        /\ votedFor' = [votedFor EXCEPT ![i] = j]
+        \* Update term if newer.
+        /\ currentTerm' = [currentTerm EXCEPT ![i] = IF m.mterm > currentTerm[i] THEN m.mterm ELSE currentTerm[i]] 
+        /\ LET res == [type        |-> "RequestVoteResponse",
+                       mterm        |-> currentTerm[i],
+                       mvoteGranted |-> TRUE,
+                       \* mlog is used just for the `elections' history variable for
+                       \* the proof. It would not exist in a real implementation.
+                       mlog         |-> log[i],
+                       msource      |-> i,
+                       mdest        |-> j] IN
+         /\ messages' = messages \cup {res}
+         /\ UNCHANGED <<elections,matchEntry,state,log,commitIndex,votesResponded,votesGranted,voterLog>>
+
+\* Server i receives a RequestVote response from server j.
+HandleRequestVoteReponse(i, j) == 
+    \E m \in messages:
+        /\ m.type = "RequestVoteResponse"
+        /\ m.mdest = i
+        /\ m.msource = j
+        /\ m.mvoteGranted
+        /\ votesResponded' = [votesResponded EXCEPT ![i] = votesResponded[i] \cup {j}]
+        /\ votesGranted' = [votesGranted EXCEPT ![i] = votesGranted[i] \cup {j}]
+        /\ voterLog' = [voterLog EXCEPT ![i] = voterLog[i] @@ (j :> m.mlog)]
+        /\ UNCHANGED <<messages,currentTerm,elections,matchEntry,state,votedFor,log,commitIndex>>
+ 
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
 (*                                                                                                *)
@@ -324,7 +399,7 @@ UpdatePosition(i, j) ==
     /\ LET lastEntry == <<Len(log[i]), LastTerm(log[i])>> IN
            /\ matchEntry[j][i] # lastEntry \* Only update progress if newer.
            /\ matchEntry' = [matchEntry EXCEPT ![j][i] = lastEntry] 
-    /\ UNCHANGED << votedFor, candidateVars, logVars, leaderVars, commitIndex, messages>>        
+    /\ UNCHANGED <<votedFor, candidateVars, logVars, leaderVars, commitIndex, messages>>        
 
 
 (**************************************************************************************************)
@@ -584,13 +659,23 @@ HistNext ==
     /\ immediatelyCommitted' = immediatelyCommitted \cup AllImmediatelyCommitted'
          
 Next == 
-    \/ \E s \in Server : BecomeLeader(s)                         /\ HistNext
+    \/ \E s \in Server : BecomePrimary(s)                        /\ HistNext
+    \/ \E s \in Server : Timeout(s)                              /\ HistNext
+    \/ \E s,t \in Server : RequestVote(s, t)                     /\ HistNext
+    \/ \E s,t \in Server : HandleRequestVoteRequest(s, t)        /\ HistNext
+    \/ \E s,t \in Server : HandleRequestVoteReponse(s, t)        /\ HistNext
     \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)    /\ HistNext
-    \/ \E s, t \in Server : SendEntries(s)                       /\ HistNext
-    \/ \E s, t \in Server : HandleSendEntries(s)                 /\ HistNext
-    \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext /\ EnableRollbackProtocol   
-    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext /\ EnableLearnerProtocol
-    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext /\ EnableLearnerProtocol
+    \/ \E s,t \in Server : SendEntries(s)                        /\ HistNext
+    \/ \E s,t \in Server : HandleSendEntries(s)                  /\ HistNext
+    \/ \E s,t \in Server : 
+        /\ EnableRollbackProtocol 
+        /\ RollbackEntries(s, t)                /\ HistNext   
+    \/ \E s,t \in Server : 
+        /\ EnableLearnerProtocol
+        /\ UpdatePosition(s, t)                 /\ HistNext 
+    \/ \E s \in Server : 
+        /\ EnableLearnerProtocol
+        /\ AdvanceCommitPoint(s)                /\ HistNext 
 
 Spec == Init /\ [][Next]_vars /\ WF_vars(Next)
 
@@ -611,6 +696,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jan 02 11:10:41 EST 2019 by williamschultz
+\* Last modified Tue Jan 08 23:28:02 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
