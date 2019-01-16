@@ -60,5 +60,8 @@ only occur on secondaries. Should add a LeaderAppendOnly safety property.
 To reduce model checking state space, don't need to send an empty log in the SendEntries action. I think
 this can be added as an optimization in the model, not in the spec though.
 
+* January 15, 2019
 
+- Is it possible that turning ON the RollbackProtocol can lead to a smaller state space than if we turn OFF
+the RollbackProtocol?
 
