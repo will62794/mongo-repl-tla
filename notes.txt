@@ -65,3 +65,4 @@ this can be added as an optimization in the model, not in the spec though.
 - Is it possible that turning ON the RollbackProtocol can lead to a smaller state space than if we turn OFF
 the RollbackProtocol?
 
+I think that sending out votes all at once is a fine simplification to make and it reduces model checking state space. I think it might be cleanest to model elections for candidates as simply sending out all vote messages once and waiting to hear back, but never sending out messages again. This could serve as one model of elections i.e. you try once and if you fail you just give up until you either timeout again or revert to secondary.

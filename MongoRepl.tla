@@ -244,18 +244,19 @@ Timeout(i) ==
     /\ UNCHANGED <<messages,elections,matchEntry,log,commitIndex>>
 
 (**************************************************************************************************)
-(* Candidate node 'i' sends node 'j' a RequestVote request.  (ACTION)                             *)
+(* Candidate node 'i' sends out RequestVote requests.  (ACTION)                                   *)
+(*                                                                                                *)
+(* We send out messages to potential voters all at once, to simplify the model.                   *)
 (**************************************************************************************************)
-RequestVote(i, j) ==
+RequestVotes(i) ==
     /\ state[i] = Candidate
-    /\ j \notin votesResponded[i]
-    /\ LET msg == [ type          |-> "RequestVoteRequest",
-                    mterm         |-> currentTerm[i],
-                    mlastLogTerm  |-> LastTerm(log[i]),
-                    mlastLogIndex |-> Len(log[i]),
-                    msource       |-> i,
-                    mdest         |-> j] IN
-       messages' = messages \cup {msg}
+    /\ LET msgs == [type          : {"RequestVoteRequest"},
+                    mterm         : {currentTerm[i]},
+                    mlastLogTerm  : {LastTerm(log[i])},
+                    mlastLogIndex : {Len(log[i])},
+                    msource       : {i},
+                    mdest         : (Server \ {i})] IN
+       messages' = messages \cup msgs
     /\ UNCHANGED <<currentTerm,elections,matchEntry,state,votedFor,log,commitIndex,votesResponded,votesGranted,voterLog>>
 
 (**************************************************************************************************)
@@ -625,7 +626,7 @@ HistNext ==
 Next == 
     \/ \E s \in Server : BecomePrimary(s)                        /\ HistNext
     \/ \E s \in Server : Timeout(s)                              /\ HistNext
-    \/ \E s,t \in Server : RequestVote(s, t)                     /\ HistNext
+    \/ \E s \in Server : RequestVotes(s)                         /\ HistNext
     \/ \E s,t \in Server : HandleRequestVoteRequest(s, t)        /\ HistNext
     \/ \E s,t \in Server : HandleRequestVoteResponse(s, t)       /\ HistNext
     \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)    /\ HistNext
@@ -657,6 +658,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jan 16 00:10:14 EST 2019 by williamschultz
+\* Last modified Wed Jan 16 00:25:13 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
