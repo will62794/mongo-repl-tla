@@ -234,6 +234,7 @@ RollbackEntries(i, j) ==
 (* by saying that nodes can send out log entries at any time, to any node.                        *)
 (**************************************************************************************************)
 SendEntries(i) == 
+    /\ Len(log[i]) > 0
     /\ messages' = messages \cup {[type |-> "SendEntries", fullLog |-> log[i]]}
     /\ UNCHANGED <<serverVars, candidateVars, leaderVars, logVars, matchEntry>>
 
@@ -267,24 +268,6 @@ HandleSendEntries(i) ==
 (* simply checking if a node can become leader and then updating its state and the state of a     *)
 (* quorum of nodes who voted for it appropriately, as if a full election has occurred.            *)
 (**************************************************************************************************)
-\*BecomeLeader(i) == 
-\*    LET voters == {s \in Server : CanVoteFor(s, i)}
-\*        newTerm == currentTerm[i] + 1 IN
-\*        /\ voters \in Quorum
-\*        \* Update the terms of each voter.
-\*        /\ currentTerm' = [s \in Server |-> IF s \in voters THEN newTerm ELSE currentTerm[s]]
-\*        /\ votedFor' = [s \in Server |-> IF s \in voters THEN i ELSE votedFor[s]]
-\*        /\ state' = [s \in Server |-> 
-\*                        IF s = i THEN Primary
-\*                        ELSE IF s \in voters THEN Secondary \* All voters should revert to secondary state.
-\*                        ELSE state[s]] 
-\*        /\ LET election == [eterm     |-> newTerm,
-\*                            eleader   |-> i,
-\*                            elog      |-> log[i],
-\*                            evotes    |-> voters,
-\*                            evoterLog |-> voterLog[i]] IN
-\*           elections'  = elections \cup {election}        
-\*        /\ UNCHANGED <<logVars, candidateVars, matchEntry, messages>> 
      
 \* Server i becomes a primary.
 BecomePrimary(i) == 
@@ -316,7 +299,7 @@ Timeout(i) ==
 RequestVote(i, j) ==
     /\ state[i] = Candidate
     /\ j \notin votesResponded[i]
-    /\ LET msg == [ type         |-> "RequestVoteRequest",
+    /\ LET msg == [ type          |-> "RequestVoteRequest",
                     mterm         |-> currentTerm[i],
                     mlastLogTerm  |-> LastTerm(log[i]),
                     mlastLogIndex |-> Len(log[i]),
@@ -333,8 +316,8 @@ HandleRequestVoteRequest(i, j) ==
         /\ m.msource = j
         /\ CanVoteFor(i, m)
         /\ votedFor' = [votedFor EXCEPT ![i] = j]
-        \* Update term if newer.
-        /\ currentTerm' = [currentTerm EXCEPT ![i] = IF m.mterm > currentTerm[i] THEN m.mterm ELSE currentTerm[i]] 
+        \* Update term.
+        /\ currentTerm' = [currentTerm EXCEPT ![i] = m.mterm] 
         /\ LET res == [type        |-> "RequestVoteResponse",
                        mterm        |-> currentTerm[i],
                        mvoteGranted |-> TRUE,
@@ -347,11 +330,12 @@ HandleRequestVoteRequest(i, j) ==
          /\ UNCHANGED <<elections,matchEntry,state,log,commitIndex,votesResponded,votesGranted,voterLog>>
 
 \* Server i receives a RequestVote response from server j.
-HandleRequestVoteReponse(i, j) == 
+HandleRequestVoteResponse(i, j) == 
     \E m \in messages:
         /\ m.type = "RequestVoteResponse"
         /\ m.mdest = i
         /\ m.msource = j
+        /\ m.mterm  = currentTerm[i]
         /\ m.mvoteGranted
         /\ votesResponded' = [votesResponded EXCEPT ![i] = votesResponded[i] \cup {j}]
         /\ votesGranted' = [votesGranted EXCEPT ![i] = votesGranted[i] \cup {j}]
@@ -663,7 +647,7 @@ Next ==
     \/ \E s \in Server : Timeout(s)                              /\ HistNext
     \/ \E s,t \in Server : RequestVote(s, t)                     /\ HistNext
     \/ \E s,t \in Server : HandleRequestVoteRequest(s, t)        /\ HistNext
-    \/ \E s,t \in Server : HandleRequestVoteReponse(s, t)        /\ HistNext
+    \/ \E s,t \in Server : HandleRequestVoteResponse(s, t)        /\ HistNext
     \/ \E s \in Server : \E v \in Value : ClientRequest(s, v)    /\ HistNext
     \/ \E s,t \in Server : SendEntries(s)                        /\ HistNext
     \/ \E s,t \in Server : HandleSendEntries(s)                  /\ HistNext
@@ -696,6 +680,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Tue Jan 08 23:28:02 EST 2019 by williamschultz
+\* Last modified Tue Jan 15 21:04:57 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
