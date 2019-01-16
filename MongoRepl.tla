@@ -340,28 +340,7 @@ RollbackEntries(i, j) ==
 (**************************************************************************************************)
 (* Node 'i' updates node 'j' with its latest log application progress.  (ACTION)                  *)
 (*                                                                                                *)
-(* This action abstracts away the details of how this information would be passed between two     *)
-(* nodes.  In a real system, it will likely be via a message sent from one node to the other.  It *)
-(* is important to point out why we abstract away the details of an asynchronous message passing  *)
-(* system here.  In an asynchronous network, nodes can inform other nodes about their current     *)
-(* state by sending a message.  Such a message may contain some or all of the sender's local      *)
-(* state, as it was at the time the message was sent.  Once messages are sent into the network,   *)
-(* the assumption is that they can be lost, delayed arbitrarily, or duplicated.  If a message is  *)
-(* lost, we consider it no different than if the message was never sent at all.  It has no effect *)
-(* on the state of the system, and so should not affect safety at all.  If messages can be        *)
-(* delayed arbitrarily, this implies that they can be delivered to recipients in an order that is *)
-(* entirely unrelated to the order they were sent in.  One way to view this property is that when *)
-(* a message is received, there is no bound on how "stale" the message is.  The information       *)
-(* contained in it may reflect the state of a sender node as it was far in the past, and the      *)
-(* receiver node may have already received messages (and therefore learned of states) that were   *)
-(* sent after the received message.  In the case of UpdatePosition messages we have to consider   *)
-(* how a node would handle "stale" information.  If the application progress of a node moves      *)
-(* backwards, due to the receipt of stale message, the worst that could happen is that the commit *)
-(* point may also move backwards, since the local commit point on any node is computed directly   *)
-(* from the local 'matchEntry' value.  The commit point moving backwards doesn't actually violate *)
-(* any safety property.  It is technically always OK for the commit point to indicate that less   *)
-(* entries are committed than actually are.  As long as it doesn't indicate that certain entries  *)
-(* are committed that actually aren't, it is fine.                                                *)
+(* This is modeled as a single atomic step.                                                       *)
 (**************************************************************************************************)
 UpdatePosition(i, j) == 
     /\ Len(log[i]) > 0
@@ -636,8 +615,8 @@ Next ==
         /\ EnableRollbackProtocol /\ RollbackEntries(s, t)       /\ HistNext   
     \/ \E s,t \in Server :
         /\ EnableLearnerProtocol  /\ UpdatePosition(s, t)        /\ HistNext 
-    \/ \E s \in Server : 
-        /\ EnableLearnerProtocol  /\ AdvanceCommitPoint(s)       /\ HistNext 
+\*    \/ \E s \in Server : 
+\*        /\ EnableLearnerProtocol  /\ AdvanceCommitPoint(s)       /\ HistNext 
 
 Spec == Init /\ [][Next]_vars /\ WF_vars(Next)
 
@@ -658,6 +637,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Wed Jan 16 00:25:13 EST 2019 by williamschultz
+\* Last modified Wed Jan 16 00:45:20 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
