@@ -21,10 +21,6 @@ CONSTANTS Secondary, Candidate, Primary
 \* A reserved value.
 CONSTANTS Nil
 
-\* Message types:
-\*CONSTANTS RequestVoteRequest, RequestVoteResponse,
-\*          AppendEntriesRequest, AppendEntriesResponse
-
 \* Optionally disable/enable these protocols by setting these constants to TRUE or FALSE.
 CONSTANT EnableLearnerProtocol, EnableRollbackProtocol
 
@@ -56,11 +52,10 @@ VARIABLE immediatelyCommitted
 \* The server's term number.
 VARIABLE currentTerm
 
-\* The server's state (Follower, Candidate, or Leader).
+\* The server's state (Secondary, Candidate, or Primary).
 VARIABLE state
 
-\* The candidate the server voted for in its current term, or
-\* Nil if it hasn't voted for any.
+\* The candidate the server voted for in its current term, or  Nil if it hasn't voted for any.
 VARIABLE votedFor
 
 \* A function maintained on each server that contains a local view of how far each node think
@@ -69,8 +64,7 @@ VARIABLE matchEntry
 
 serverVars == <<currentTerm, state, votedFor>>
 
-\* A sequence of log entries. The index into this sequence is the index of the
-\* log entry
+\* A sequence of log entries. The index into this sequence is the index of the log entry.
 VARIABLE log
 
 \* The index of the latest entry in the log the state machine may apply.
@@ -83,12 +77,11 @@ logVars == <<log, commitIndex>>
 \* response in its currentTerm.
 VARIABLE votesResponded
 
-\* The set of servers from which the candidate has received a vote in its
-\* currentTerm.
+\* The set of servers from which the candidate has received a vote in its currentTerm.
 VARIABLE votesGranted
 
-\* A history variable used in the proof. This would not be present in an
-\* implementation. It is a function from each server that voted for this candidate 
+\* A history variable that would not be present in an implementation. 
+\* It is a function from each server that voted for this candidate 
 \* in its currentTerm to that voter's log.
 VARIABLE voterLog
 candidateVars == <<votesResponded, votesGranted, voterLog>>
@@ -170,33 +163,6 @@ QuorumAgreeInSameTerm(matchEntryVal) ==
                     /\ \A s, t \in Q : 
                        s # t => matchEntryVal[s][2] = matchEntryVal[t][2]} IN
         IF quorums = {} THEN Nil ELSE CHOOSE x \in quorums : TRUE    
-
-(**************************************************************************************************)
-(* Node 'j' removes entries based against the log of node 'i'.  (ACTION)                          *)
-(*                                                                                                *)
-(* The rollback procedure used in this protocol is always executed by comparing the logs of two   *)
-(* separate nodes.  By doing so, it is possible to determine if one node has a "divergent" log    *)
-(* suffix, and thus has entries in its log that are uncommitted.  The essential idea is to see if *)
-(* the last term of the entry of one log is less than the last term of the last entry of another  *)
-(* log.  In this case, the log with the lesser last term should be considered eligible for        *)
-(* rollback.  Note that the goal of this rollback procedure should be to truncate entries from a  *)
-(* log that are both uncommitted, and also only truncate entries that it knows will NEVER become  *)
-(* committed.  Of course, log entries that are written down by a primary before being replicated  *)
-(* are clearly uncommitted, but deleting them wouldn't be sensible, since it is very possible     *)
-(* those entries WILL become committed in the future.                                             *)
-(**************************************************************************************************)
-RollbackEntries(i, j) == 
-    /\ state[j] = Secondary \* Primaries can only append to their logs.
-    /\ CanRollback(log[i], log[j])
-    /\ LET commonPoint == RollbackCommonPoint(log[i], log[j]) IN
-           \* If there is no common entry between log 'i' and
-           \* log 'j', then it means that the all entries of log 'j'
-           \* are divergent, and so we erase its entire log. Otherwise
-           \* we erase all log entries after the newest common entry. Note that 
-           \* if the commonPoint is '0' then SubSeq(log[i], 1, 0) will evaluate
-           \* to <<>>, the empty sequence.
-           log' = [log EXCEPT ![j] = SubSeq(log[i], 1, commonPoint)] 
-    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex, matchEntry, messages>>
        
 (**************************************************************************************************)
 (* Node 'i' sends out log entries.  (ACTION)                                                      *)
@@ -330,7 +296,46 @@ HandleRequestVoteResponse(i, j) ==
         /\ voterLog' = [voterLog EXCEPT ![i] = voterLog[i] @@ (j :> m.mlog)]
         /\ messages' = messages \ {m}
         /\ UNCHANGED <<currentTerm,elections,matchEntry,state,votedFor,log,commitIndex>>
+      
+(**************************************************************************************************)
+(* Node 'i', a primary, handles a new client request and places the entry in its log.  (ACTION)   *)
+(**************************************************************************************************)        
+ClientRequest(i, v) == 
+    /\ state[i] = Primary
+    /\ LET entry == [term  |-> currentTerm[i],
+                     value |-> v]
+       newLog == Append(log[i], entry) IN
+       /\ log' = [log EXCEPT ![i] = newLog]
+       /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), entry.term>>]
+    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex, messages>>
  
+(**************************************************************************************************)
+(* Node 'j' removes entries based against the log of node 'i'.  (ACTION)                          *)
+(*                                                                                                *)
+(* The rollback procedure used in this protocol is always executed by comparing the logs of two   *)
+(* separate nodes.  By doing so, it is possible to determine if one node has a "divergent" log    *)
+(* suffix, and thus has entries in its log that are uncommitted.  The essential idea is to see if *)
+(* the last term of the entry of one log is less than the last term of the last entry of another  *)
+(* log.  In this case, the log with the lesser last term should be considered eligible for        *)
+(* rollback.  Note that the goal of this rollback procedure should be to truncate entries from a  *)
+(* log that are both uncommitted, and also only truncate entries that it knows will NEVER become  *)
+(* committed.  Of course, log entries that are written down by a primary before being replicated  *)
+(* are clearly uncommitted, but deleting them wouldn't be sensible, since it is very possible     *)
+(* those entries WILL become committed in the future.                                             *)
+(**************************************************************************************************)
+RollbackEntries(i, j) == 
+    /\ state[j] = Secondary \* Primaries can only append to their logs.
+    /\ CanRollback(log[i], log[j])
+    /\ LET commonPoint == RollbackCommonPoint(log[i], log[j]) IN
+           \* If there is no common entry between log 'i' and
+           \* log 'j', then it means that the all entries of log 'j'
+           \* are divergent, and so we erase its entire log. Otherwise
+           \* we erase all log entries after the newest common entry. Note that 
+           \* if the commonPoint is '0' then SubSeq(log[i], 1, 0) will evaluate
+           \* to <<>>, the empty sequence.
+           log' = [log EXCEPT ![j] = SubSeq(log[i], 1, commonPoint)] 
+    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex, matchEntry, messages>>
+
 (**************************************************************************************************)
 (* Node 'i' updates node 'j' with its latest log application progress.  (ACTION)                  *)
 (*                                                                                                *)
@@ -394,23 +399,12 @@ AdvanceCommitPoint(i) ==
                /\ commitIndex' = [commitIndex EXCEPT ![i] = <<newCommitIndex, termOfQuorum>>]
     /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, matchEntry, messages>>  
 
-        
-(**************************************************************************************************)
-(* Node 'i', a primary, handles a new client request and places the entry in its log.  (ACTION)   *)
-(**************************************************************************************************)        
-ClientRequest(i, v) == 
-    /\ state[i] = Primary
-    /\ LET entry == [term  |-> currentTerm[i],
-                     value |-> v]
-       newLog == Append(log[i], entry) IN
-       /\ log' = [log EXCEPT ![i] = newLog]
-       /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), entry.term>>]
-    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, commitIndex, messages>>
-
 -------------------------------------------------------------------------------------------
 
 (**************************************************************************************************)
+(*                                                                                                *)
 (* Correctness Properties                                                                         *)
+(*                                                                                                *)
 (**************************************************************************************************)
 
 \* The set of all log entries in a given log i.e. the set of all <<index, term>>
@@ -663,6 +657,6 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 =============================================================================
 \* Modification History
-\* Last modified Tue Jan 15 23:22:20 EST 2019 by williamschultz
+\* Last modified Wed Jan 16 00:10:14 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
