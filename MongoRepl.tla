@@ -179,9 +179,6 @@ QuorumAgreeInSameTerm(matchEntryVal) ==
 (* log entries and append them if they pass the consistency check i.e.  if their log is a prefix  *)
 (* of the sender's log at the time the entries were sent.                                         *)
 (*                                                                                                *)
-(* There are few restrictions made about the sender and receiver of this log transferral.  For    *)
-(* example, we don't require the receiver to update its term if the sender has a higher term.     *)
-(*                                                                                                *)
 (* In MongoDB, this action is implemented by secondary nodes: they select another node to sync    *)
 (* from (their "sync source") and then fetch new entries by opening a cursor on their source's    *)
 (* oplog.  Upon retrieval of the first batch from this oplog cursor they will perform the log     *)
@@ -191,7 +188,10 @@ QuorumAgreeInSameTerm(matchEntryVal) ==
 (**************************************************************************************************)
 SendEntries(i) == 
     /\ Len(log[i]) > 0
-    /\ messages' = messages \cup {[type |-> "SendEntries", fullLog |-> log[i]]}
+    /\ LET m == [type    |-> "SendEntries", 
+                 fullLog |-> log[i], 
+                 mterm   |-> currentTerm[i]] IN
+       messages' = messages \cup {m}
     /\ UNCHANGED <<serverVars, candidateVars, leaderVars, logVars, matchEntry>>
 
 (**************************************************************************************************)
@@ -210,8 +210,10 @@ HandleSendEntries(i) ==
         \* Append one new entry. 
         /\ LET newEntry == m.fullLog[Len(log[i]) + 1] IN
            log' = [log EXCEPT ![i] = Append(log[i], newEntry)]
+        \* Update term if needed.
+        /\ currentTerm' = [currentTerm EXCEPT ![i] = Max({currentTerm[i], m.mterm})]
         /\ messages' = messages \ {m}
-        /\ UNCHANGED <<state, votedFor, currentTerm, candidateVars, leaderVars, commitIndex, matchEntry>>
+        /\ UNCHANGED <<state, votedFor, candidateVars, leaderVars, commitIndex, matchEntry>>
     
 (**************************************************************************************************)
 (* Node 'i' becomes a primary.  (ACTION)                                                          *)
@@ -220,7 +222,7 @@ BecomePrimary(i) ==
     /\ state[i] = Candidate
     /\ votesGranted[i] \in Quorum
     /\ state'      = [state EXCEPT ![i] = Primary]
-    /\ matchEntry' = [matchEntry EXCEPT ![i] = [j \in Server |-> Nil]]
+    /\ matchEntry' = [matchEntry EXCEPT ![i] = [j \in Server |-> <<0, 0>>]]
     /\ elections'  = elections \cup
                          {[eterm     |-> currentTerm[i],
                            eleader   |-> i,
@@ -255,7 +257,7 @@ RequestVotes(i) ==
                     mlastLogTerm  : {LastTerm(log[i])},
                     mlastLogIndex : {Len(log[i])},
                     msource       : {i},
-                    mdest         : (Server \ {i})] IN
+                    mdest         : (Server \ votesResponded[i])] IN
        messages' = messages \cup msgs
     /\ UNCHANGED <<currentTerm,elections,matchEntry,state,votedFor,log,commitIndex,votesResponded,votesGranted,voterLog>>
 
@@ -353,10 +355,8 @@ UpdatePosition(i, j) ==
     \* Primary nodes must revert to Secondary state if they increment their local term.
     /\ state' = [state EXCEPT ![j] = IF currentTerm[i] > currentTerm[j] THEN Secondary ELSE @]
     /\ LET lastEntry == <<Len(log[i]), LastTerm(log[i])>> IN
-           /\ matchEntry[j][i] # lastEntry \* Only update progress if newer.
            /\ matchEntry' = [matchEntry EXCEPT ![j][i] = lastEntry] 
     /\ UNCHANGED <<votedFor, candidateVars, logVars, leaderVars, commitIndex, messages>>        
-
 
 (**************************************************************************************************)
 (* Advances the commit point on server 'i'.  (ACTION)                                             *)
@@ -364,9 +364,13 @@ UpdatePosition(i, j) ==
 (* The commit point is calculated based on node i's current 'matchEntry' vector.  Choose the      *)
 (* highest index that is agreed upon by a majority.  We are only allowed to choose a quorum whose *)
 (* last applied entries have the same term.                                                       *)
+(*                                                                                                *)
+(* Only allow primaries to advance the commit point for now.  In general, we should be able to    *)
+(* extend this rule so that secondaries can also advance commit point by similar means.           *)
 (**************************************************************************************************)
 AdvanceCommitPoint(i) == 
     LET quorumAgree == QuorumAgreeInSameTerm(matchEntry[i]) IN
+        /\ state[i] = Primary
         /\ quorumAgree # Nil
         \* The term of the entries in the quorum must match our current term.
         /\ LET serverInQuorum == CHOOSE s \in quorumAgree : TRUE
@@ -377,7 +381,7 @@ AdvanceCommitPoint(i) ==
                \* We store the commit index as an <<index, term>> pair instead of just an
                \* index, so that we can uniquely identify a committed log prefix.
                /\ commitIndex' = [commitIndex EXCEPT ![i] = <<newCommitIndex, termOfQuorum>>]
-    /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, matchEntry, messages>>  
+        /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, matchEntry, messages>>  
 
 -------------------------------------------------------------------------------------------
 
@@ -521,8 +525,7 @@ LearnerSafety ==
     \* all committed entries. Otherwise, it is not necessary to contain the committed
     \* entries.
     EntryInLog(log[s], commitIndex[s][1], commitIndex[s][2]) =>
-        \A i \in DOMAIN log[s] :
-            i < commitIndex[s][1] =>
+        \A i \in DOMAIN log[s] : i < commitIndex[s][1] =>
             \E c \in CommittedEntries : <<i, log[s][i].term>> = c.entry
 
 \*
@@ -578,7 +581,7 @@ InitServerVars ==
     /\ currentTerm = [i \in Server |-> 0]
     /\ state       = [i \in Server |-> Secondary]
     /\ votedFor    = [i \in Server |-> Nil]
-    /\ matchEntry = [i \in Server |-> [j \in Server |-> <<-1,-1>>]]
+    /\ matchEntry = [i \in Server |-> [j \in Server |-> <<0, 0>>]]
 
 InitCandidateVars == 
     /\ votesResponded = [i \in Server |-> {}]
@@ -615,8 +618,8 @@ Next ==
         /\ EnableRollbackProtocol /\ RollbackEntries(s, t)       /\ HistNext   
     \/ \E s,t \in Server :
         /\ EnableLearnerProtocol  /\ UpdatePosition(s, t)        /\ HistNext 
-\*    \/ \E s \in Server : 
-\*        /\ EnableLearnerProtocol  /\ AdvanceCommitPoint(s)       /\ HistNext 
+    \/ \E s \in Server : 
+        /\ EnableLearnerProtocol  /\ AdvanceCommitPoint(s)       /\ HistNext 
 
 Spec == Init /\ [][Next]_vars /\ WF_vars(Next)
 
@@ -635,8 +638,14 @@ StateConstraint == \A s \in Server :
 MaxTermInvariant ==  \A s \in Server : currentTerm[s] <= MaxTerm    
 LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen    
 
+\* There is an entry that exists on a majority of nodes but is not committed.
+P1 == \E e \in AllLogEntries(Range(log)) :
+      \E Q \in Quorum :
+        /\ \A s \in Q : EntryInLog(log[s], e[1], e[2])
+        /\ ~\E x \in immediatelyCommitted : x.entry = e
+
 =============================================================================
 \* Modification History
-\* Last modified Wed Jan 16 00:45:20 EST 2019 by williamschultz
+\* Last modified Mon Jan 21 20:46:44 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
