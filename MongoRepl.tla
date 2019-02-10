@@ -190,7 +190,8 @@ SendEntries(i) ==
     /\ Len(log[i]) > 0
     /\ LET m == [type    |-> "SendEntries", 
                  fullLog |-> log[i], 
-                 mterm   |-> currentTerm[i]] IN
+                 mterm   |-> currentTerm[i],
+                 mcommitIndex |-> commitIndex[i]] IN
        messages' = messages \cup {m}
     /\ UNCHANGED <<serverVars, candidateVars, leaderVars, logVars, matchEntry>>
 
@@ -212,8 +213,12 @@ HandleSendEntries(i) ==
            log' = [log EXCEPT ![i] = Append(log[i], newEntry)]
         \* Update term if needed.
         /\ currentTerm' = [currentTerm EXCEPT ![i] = Max({currentTerm[i], m.mterm})]
+        \* Update commitIndex if newer.
+        /\ commitIndex' = 
+                [commitIndex EXCEPT ![i] = 
+                    IF m.mcommitIndex[1] > commitIndex[i][1] THEN m.mcommitIndex ELSE commitIndex[i]]
         /\ messages' = messages \ {m}
-        /\ UNCHANGED <<state, votedFor, candidateVars, leaderVars, commitIndex, matchEntry>>
+        /\ UNCHANGED <<state, votedFor, candidateVars, leaderVars, matchEntry>>
     
 (**************************************************************************************************)
 (* Node 'i' becomes a primary.  (ACTION)                                                          *)
@@ -408,6 +413,7 @@ AllLogEntries(logSet) == UNION {LogEntries(l) : l \in logSet}
 ImmediatelyCommitted(index, term) == 
     \E Q \in Quorum :
         \A q \in Q : 
+\*            /\ currentTerm[q] <= term 
             /\ currentTerm[q] = term 
             /\ EntryInLog(log[q], index, term)
 
@@ -638,14 +644,28 @@ StateConstraint == \A s \in Server :
 MaxTermInvariant ==  \A s \in Server : currentTerm[s] <= MaxTerm    
 LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen    
 
+ 
+\*
+\*        
+\* Various interesting properties to check and to help debug the spec.
+\*
+\*
+
 \* There is an entry that exists on a majority of nodes but is not committed.
 P1 == \E e \in AllLogEntries(Range(log)) :
       \E Q \in Quorum :
         /\ \A s \in Q : EntryInLog(log[s], e[1], e[2])
         /\ ~\E x \in immediatelyCommitted : x.entry = e
 
+SyncSourceCyclePreCond == 
+    \E s, t \in Server : 
+        /\ commitIndex[s][1] > commitIndex[t][1]
+        /\ commitIndex[s][1] > 0 /\ commitIndex[t][1] > 0
+        /\ IsPrefix(log[s], log[t]) /\ Len(log[s]) < Len(log[t])
+
+
 =============================================================================
 \* Modification History
-\* Last modified Mon Jan 21 20:46:44 EST 2019 by williamschultz
+\* Last modified Sun Feb 10 17:01:59 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
