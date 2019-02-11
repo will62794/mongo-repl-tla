@@ -644,10 +644,11 @@ StateConstraint == \A s \in Server :
 MaxTermInvariant ==  \A s \in Server : currentTerm[s] <= MaxTerm    
 LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen    
 
- 
+-------------------------------------------------------------------------------------------
+
 \*
 \*        
-\* Various interesting properties to check and to help debug the spec.
+\* Various interesting properties to check and to help debug the spec. Some are experimental.
 \*
 \*
 
@@ -662,10 +663,27 @@ SyncSourceCyclePreCond ==
         /\ commitIndex[s][1] > commitIndex[t][1]
         /\ commitIndex[s][1] > 0 /\ commitIndex[t][1] > 0
         /\ IsPrefix(log[s], log[t]) /\ Len(log[s]) < Len(log[t])
+        
+\* Experimental definition of immediately committed using temporal logic formula 
+\* i.e. a predicate over an entire behavior.
+\*ImmediatelyCommittedTemporal(e) == 
+\*    \E Q \in Quorum : 
+\*    \A s \in Q :
+\*        <> (EntryInLog(log[s], e[1], e[2]) /\ currentTerm[s] = e[2])
+
+\*ImmediatelyCommittedTemporal(e) == 
+\*    \E s \in Server :
+\*        <> (EntryInLog(log[s], e[1], e[2]) /\ currentTerm[s] = e[2])
+
+ImmediatelyCommittedTemporal(e) == 
+\*    \E s \in Server :
+        <> (\E s \in Server : currentTerm[s] = e[2])
+
+\*    AllLogEntries(Range(log))
 
 
 =============================================================================
 \* Modification History
-\* Last modified Sun Feb 10 17:01:59 EST 2019 by williamschultz
+\* Last modified Sun Feb 10 19:04:52 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
