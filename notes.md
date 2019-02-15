@@ -138,5 +138,99 @@ In summary, there is some tricky business regarding checking temporal properties
 
 It seems like I should disable commitIndex advancement via SendEntries on secondaries when LearnerProtocol is disabled, but actually it might not matter since primaries won't advance the commit point when the protocol is disabled. I would still like to do another full model run with MaxTerm=3, MaxLogLen=3 and the latest message passing specification to get a baseline.
 
+#### New Linux Workstation Model Checking Results
+
+Sync Toolbox spec and model files to remote machine:
+
+```
+scp -r MongoRepl/*.{tla,cfg} wills-ubuntu:/ssd2/mongodb/tools/tlc/mongorepl/MongoRepl
+```
+
+##### Model: MaxTerm=3, MaxLogLen=2
+
+Model checking `MongoRepl` with no rollback or learner protocol on Linux workstation:
+
+- 309,577 distinct states
+- Finished in 25s
+- 10 TLC worker threads
+- EnableRollbackProtocol=FALSE
+- EnableLearnerProtocol=FALSE
+- MaxTerm=3
+- MaxLogLen=2
+
+```
+Starting... (2019-02-10 19:14:32)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated.
+Progress(17) at 2019-02-10 19:14:35: 253816 states generated (253,816 s/min), 39858 distinct states found (39,858 ds/min), 10871 states left on queue.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 6.2E-8
+  based on the actual fingerprints:  val = 1.1E-8
+4007136 states generated, 309577 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 31.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 7 and the 95th percentile is 3).
+Finished in 25s at (2019-02-10 19:14:57)
+```
+
+##### Model: MaxTerm=3, MaxLogLen=3
+
+Model checking `MongoRepl` on Linux workstation:
+
+- 30,874,412 distinct states
+- Finished in 04min 05s
+- 10 TLC worker threads
+- EnableRollbackProtocol=FALSE
+- EnableLearnerProtocol=FALSE
+- MaxTerm=3
+- MaxLogLen=3
+
+```
+Starting... (2019-02-10 19:18:38)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated.
+Progress(15) at 2019-02-10 19:18:41: 222031 states generated (222,031 s/min), 40798 distinct states found (40,798 ds/min), 14575 states left on queue.
+Progress(24) at 2019-02-10 19:19:41: 8552528 states generated (8,330,497 s/min), 822612 distinct states found (781,814 ds/min), 174773 states left on queue.
+Progress(27) at 2019-02-10 19:20:41: 16217310 states generated (7,664,782 s/min), 1392371 distinct states found (569,759 ds/min), 205638 states left on queue.
+Progress(30) at 2019-02-10 19:21:41: 23516801 states generated (7,299,491 s/min), 1873466 distinct states found (481,095 ds/min), 172306 states left on queue.
+Progress(35) at 2019-02-10 19:22:41: 30630471 states generated (7,113,670 s/min), 2226739 distinct states found (353,273 ds/min), 13455 states left on queue.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 3.5E-6
+  based on the actual fingerprints:  val = 1.8E-6
+30874412 states generated, 2231545 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 38.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 9 and the 95th percentile is 3).
+Finished in 04min 05s at (2019-02-10 19:22:44)
+```
+
+### Feburary 15, 2019
+
+##### Model: MaxTerm=3, MaxLogLen=4
+
+Model checking `MongoReplRollback` on Linux workstation:
+
+- 21,872,209 distinct states
+- Finished in 01h 12min
+- 8 TLC worker threads
+- EnableRollbackProtocol=TRUE
+- EnableLearnerProtocol=FALSE
+- MaxTerm=3
+- MaxLogLen=4
+
+```
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 3.6E-4
+  based on the actual fingerprints:  val = 7.3E-4
+321346532 states generated, 21872209 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 53.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 10 and the 95th percentile is 3).
+Finished in 01h 12min at (2019-02-15 01:05:35)
+```
+
 
 
