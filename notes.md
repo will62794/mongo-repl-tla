@@ -320,3 +320,27 @@ The depth of the complete state graph search is 32.
 The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 9 and the 95th percentile is 4).                                            Finished in 04h 42min at (2019-02-16 15:26:24)
 ```
 
+After thinking a bit more about the proposed scenario of rolling back a committed log entry, it seems possible with a maximum log length of 3. I will try to play around with the model checker to verify some other more basic assumptions about the spec to make sure the spec itself is actually accurate. 
+
+I am curious if there are bugs surrounding checking action properties when using symmetry sets? If not, it would be nice to utilize the state space reduction of setting Server as a symmetry set.
+
+I realized a potential issue with the `MongoReplSimpler.tla` spec that I overlooked. The currentTerm of every server starts at 1 i.e.
+
+```tla
+currentTerm = [i \in Server |-> 1]
+```
+
+So, the earliest term that a node can be elected is in term 2, since the first time a node runs for election it will bump its term. This means that with a state constraint restricting the max term N, we will get less than N elections. Going to fix this so that currentTerm of all servers starts at 0. I think this was already changed in `MongoRepl.tla`. I verified this by simply checking the negation of the following invariant:
+
+```tla
+IsLeader == \E s \in Server : state[s] = Primary
+```
+
+It is a simple way to see a trace with 1 election.
+
+    
+
+
+
+
+

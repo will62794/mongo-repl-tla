@@ -506,7 +506,7 @@ InitHistoryVars ==
     /\ immediatelyCommitted = {}
     
 InitServerVars == 
-    /\ currentTerm = [i \in Server |-> 1]
+    /\ currentTerm = [i \in Server |-> 0]
     /\ state       = [i \in Server |-> Secondary]
     /\ votedFor    = [i \in Server |-> Nil]
     /\ matchEntry = [i \in Server |-> [j \in Server |-> <<-1,-1>>]]
@@ -558,9 +558,7 @@ StateConstraint == \A s \in Server :
 MaxTermInvariant ==  \A s \in Server : currentTerm[s] <= MaxTerm    
 LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen    
 
-
 -------------------------------------------------------------------------------------------
-
 
 \*
 \* Scratchpad
@@ -580,8 +578,15 @@ NeverRollBackCommitted == ~RollBackCommitted
 TLCNeverRollBackCommitted == [][NeverRollBackCommitted]_vars \* (For TLC temporal property checking) 
         
 
+P1 == 
+    \E s \in Server :
+    \E i \in DOMAIN log[s] :
+    \E e \in CommittedEntries : e.entry = <<i, log[s][i].term>>
+
+IsLeader == \E s \in Server : state[s] = Primary
+
 =============================================================================
 \* Modification History
-\* Last modified Sat Feb 16 10:40:12 EST 2019 by williamschultz
+\* Last modified Sat Feb 16 17:36:23 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
