@@ -7,7 +7,7 @@
 (* found in their own section.                                                                    *)
 (**************************************************************************************************)
 
-EXTENDS Naturals, Integers, FiniteSets, Sequences, TLC
+EXTENDS Naturals, Integers, FiniteSets, Sequences, TLC, Properties
 
 \* The set of server IDs
 CONSTANTS Server
@@ -684,6 +684,6 @@ ImmediatelyCommittedTemporal(e) ==
 
 =============================================================================
 \* Modification History
-\* Last modified Sun Feb 10 19:04:52 EST 2019 by williamschultz
+\* Last modified Fri Feb 15 21:58:44 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz

@@ -10,6 +10,8 @@ than the _term of the committed entry_ necessarily contain the entry.
 
 [ ] Add a StateMachineSafety correctness property
 
+[ ] Factor out correctness properties into their own module
+
 # Logbook
 
 ### August 18, 2018
@@ -235,5 +237,7 @@ Finished in 01h 12min at (2019-02-15 01:05:35)
 I am working on a simplified version of the spec with coarser atomic actions. This is similar to how I originally started, and I am using an old Git revision of the original mongo spec. The simpler version will not model an async message passing system, and will let things like elections happen in a single atomic step. There have been a number of bugs recently that have come up that are due to really interesting edge case behaviors, but many don't actually seem to depend on the fact that the system passes messages asynchronously. Perhaps a coarser, simpler model could server to catch a lot of interesting bugs initially, before the need for a more complex, detailed spec that fully models the network, etc.
 
 To make it more feasible to maintain two versions of a spec alongside each other, I think it would make sense to factor out the correctness property definitions into a separate file that can be imported by both. This will probably require parameterizing all of those definitions/operators strictly on their arguments, as opposed to referencing global state variables. This should allow them to be imported at the beginning of both specs and they won't need to reference variables that have not been declared yet.
+
+I am currently trying to run the `MongoReplSimpler.tla` spec with a model of 5 nodes, MaxLogLen=4 and MaxTerm=3. I am letting this run on my Linux workstation to see how large the state space is. Then I will try to check some interesting invariants.
 
 
