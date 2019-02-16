@@ -1,4 +1,11 @@
-*.toolbox
+*.toolbox/*aux
+*.toolbox/*.log
+*.toolbox/*.pdf
+*.toolbox/*.tex
+*.toolbox/**/*.tla
+*.toolbox/**/*.out
+*.toolbox/**/MC.cfg
+*.toolbox/*_SnapShot*.launch
 latex/
 .DS_Store
 *.pdf
