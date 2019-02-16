@@ -240,4 +240,48 @@ To make it more feasible to maintain two versions of a spec alongside each other
 
 I am currently trying to run the `MongoReplSimpler.tla` spec with a model of 5 nodes, MaxLogLen=4 and MaxTerm=3. I am letting this run on my Linux workstation to see how large the state space is. Then I will try to check some interesting invariants.
 
+Don't forget to include the state constraint when model checking! Restarting the model run on workstation because the state constraint was not being imposed. Also forgot to make the server set a symmetry set.
+
+### Feburary 16, 2019
+
+Model checking completed overnight for the simpler model.
+
+##### Model: MongoReplSimpler, MaxTerm=3, MaxLogLen=4
+
+Model checking `MongoReplSimpler` on Linux workstation, with learner actions disabled:
+
+- 150,125 distinct states
+- Finished in 01min 02s
+- 10 TLC worker threads
+- MaxTerm=3
+- MaxLogLen=4
+- Server = `{n1,n2,n3,n4,n5}`
+
+```
+TLC2 Version 2.12 of 29 January 2018
+Running breadth-first search Model-Checking with 10 workers on 12 cores with 7143MB heap and 64MB offheap memory (Linux 4.8.0-59-generic amd64, Oracle Corporation 1.8.0_131 x86_64).
+Parsing file /ssd2/mongodb/tools/tlc/mongorepl/MongoReplSimpler/MC.tla
+Parsing file /ssd2/mongodb/tools/tlc/mongorepl/MongoReplSimpler/MongoReplSimpler.tla
+Parsing file /ssd2/mongodb/tools/tlc/tla/tla2sany/StandardModules/TLC.tla                                                                                     Parsing file /ssd2/mongodb/tools/tlc/tla/tla2sany/StandardModules/Naturals.tla
+Parsing file /ssd2/mongodb/tools/tlc/tla/tla2sany/StandardModules/Integers.tla
+Parsing file /ssd2/mongodb/tools/tlc/mongorepl/MongoReplSimpler/FiniteSets.tla                                                                                Parsing file /ssd2/mongodb/tools/tlc/tla/tla2sany/StandardModules/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets                                                                                                                      Semantic processing of module TLC
+Semantic processing of module MongoReplSimpler
+Semantic processing of module MC
+Starting... (2019-02-16 00:15:20)                                                                                                                             Computing initial states...
+Finished computing initial states: 1 distinct state generated.                                                                                                Progress(14) at 2019-02-16 00:15:23: 46774 states generated (46,774 s/min), 7349 distinct states found (7,349 ds/min), 3148 states left on queue.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.3E-8
+  based on the actual fingerprints:  val = 7.5E-9
+1689408 states generated, 150125 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 32.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 9 and the 95th percentile is 4).
+Finished in 01min 02s at (2019-02-16 00:16:22)
+```
+
 
