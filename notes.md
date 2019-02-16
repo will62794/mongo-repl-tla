@@ -234,9 +234,9 @@ The average outdegree of the complete state graph is 1 (minimum is 0, the maximu
 Finished in 01h 12min at (2019-02-15 01:05:35)
 ```
 
-I am working on a simplified version of the spec with coarser atomic actions. This is similar to how I originally started, and I am using an old Git revision of the original mongo spec. The simpler version will not model an async message passing system, and will let things like elections happen in a single atomic step. There have been a number of bugs recently that have come up that are due to really interesting edge case behaviors, but many don't actually seem to depend on the fact that the system passes messages asynchronously. Perhaps a coarser, simpler model could server to catch a lot of interesting bugs initially, before the need for a more complex, detailed spec that fully models the network, etc.
+I am working on a simplified version of the spec with coarser atomic actions. This is similar to how I originally started, and I am using an old Git revision of the original mongo spec. The simpler version will not model an async message passing system, and will let things like elections happen in a single atomic step. There have been a number of bugs in the replication system recently that have come up that are due to really interesting edge case behaviors, but many don't actually seem to depend on the fact that the system passes messages asynchronously. Perhaps a coarser, simpler model could serve to catch a lot of interesting bugs initially, before the need for a more complex, detailed spec that fully models the network, etc.
 
-To make it more feasible to maintain two versions of a spec alongside each other, I think it would make sense to factor out the correctness property definitions into a separate file that can be imported by both. This will probably require parameterizing all of those definitions/operators strictly on their arguments, as opposed to referencing global state variables. This should allow them to be imported at the beginning of both specs and they won't need to reference variables that have not been declared yet.
+To make it more feasible to maintain two versions of a spec alongside each other, I think it would make sense to factor out the correctness property definitions into a separate file that can be imported by both e.g. `Properties.tla`. This will probably require parameterizing all of those definitions/operators strictly on their arguments, as opposed to referencing global state variables. This should allow them to be imported at the beginning of both specs and they won't need to reference variables that have not been declared yet.
 
 I am currently trying to run the `MongoReplSimpler.tla` spec with a model of 5 nodes, MaxLogLen=4 and MaxTerm=3. I am letting this run on my Linux workstation to see how large the state space is. Then I will try to check some interesting invariants.
 
@@ -255,7 +255,7 @@ Model checking `MongoReplSimpler` on Linux workstation, with learner actions dis
 - 10 TLC worker threads
 - MaxTerm=3
 - MaxLogLen=4
-- Server = `{n1,n2,n3,n4,n5}`
+- Server = `{n1,n2,n3,n4,n5}` (Symmetry Set)
 
 ```
 TLC2 Version 2.12 of 29 January 2018
@@ -284,4 +284,39 @@ The average outdegree of the complete state graph is 1 (minimum is 0, the maximu
 Finished in 01min 02s at (2019-02-16 00:16:22)
 ```
 
+Now that I have verified the underlying model's state space size, I am trying to check the property `NeverRollBackCommitted`, which states that it is impossible for a log entry to be committed and exist in a node's log, but be rolled back i.e. missing from that node's log in the next state. I am expecting this to be violated with a trace that leads to a case where this can happen. If no violation is found, I should go and double check my definition of the property. I have currently defined this property as follows:
+
+```tla
+\* Does there exist a server with a log entry 'e' such that e is committed but it subsequently rolls back?
+RollBackCommitted ==
+    ∃ s ∈ Server : 
+    ∃ i ∈ DOMAIN log[s] : 
+    ∃ e ∈ CommittedEntries :
+        \* Entry is committed in the current state and in the log of 's'. 
+        ∧ e.entry = <<i, log[s][i].term>>
+        \* Entry is no longer in the log of 's' in the next state.
+        ∧ ~EntryInLog(log'[s], i, log[s][i].term)
+        
+NeverRollBackCommitted == ~RollBackCommitted
+```
+
+*Important note*: Remember that apparently some liveness/property checking doesn't work correctly when symmetry sets are enabled in the model. I should be careful to turn these off before checking such "action properties" (which `NeverRollBackCommitted` is) to avoid potential false positives i.e. TLC not reporting an error when it should.
+
+Ran the model without symmetry to check `NeverRollBackCommitted`. No violation found:
+
+- 15,113,326 distinct states
+- Finished in 04h 42min
+- 10 TLC worker threads
+- MaxTerm=3
+- MaxLogLen=4
+- Server = `{n1,n2,n3,n4,n5}`
+
+```
+Model checking completed. No error has been found.                                                                                                              Estimates of the probability that TLC did not check all reachable states                                                                                      because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.3E-4
+  based on the actual fingerprints:  val = 3.2E-5
+170289311 states generated, 15113326 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 32.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 9 and the 95th percentile is 4).                                            Finished in 04h 42min at (2019-02-16 15:26:24)
+```
 
