@@ -585,8 +585,15 @@ P1 ==
 
 IsLeader == \E s \in Server : state[s] = Primary
 
+\* A state where the set of "prefix committed" and "immediately committed" entries are both non-empty
+\* and the set of "prefix committed" entries is not a subset of "immediately committed" entries.
+PrefixAndImmediatelyCommittedDiffer ==
+    /\ PrefixCommittedEntriesWithTerm # {}
+    /\ immediatelyCommitted # {}
+    /\ ~ (PrefixCommittedEntriesWithTerm \subseteq immediatelyCommitted)
+
 =============================================================================
 \* Modification History
-\* Last modified Sat Feb 16 17:36:23 EST 2019 by williamschultz
+\* Last modified Sat Feb 16 17:54:12 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz

@@ -338,7 +338,30 @@ IsLeader == \E s \in Server : state[s] = Primary
 
 It is a simple way to see a trace with 1 election.
 
-    
+Another good sanity check is to make sure that you can see a trace where entries are "prefix committed". This can be easily checked with the invariant:
+
+```tla
+PrefixCommittedEntriesWithTerm = {}
+```    
+
+Question: Do the set of prefix committed entries and the set of immediately committed entries need to be disjoint? I don't think they have to be, based on the definition. If an entry earlier in the log becomes immediately committed and an entry later in the log also becomes immediately committed, then by definition the earlier one would also be prefix committed, in addition to being immediately committed. I think it's ok if these sets overlap. I would like to produce a specific behavior where they _are_ disjoint, though.
+
+Ok, so I was able to produce a satisfactory trace that shows that "prefix committed" can contain an entry that is not contained in "immediately committed". This invariant works to produce the trace:
+
+```tla
+\* A state where the set of "prefix committed" and "immediately committed" entries are both non-empty
+\* and the set of "prefix committed" entries is not a subset of "immediately committed" entries.
+PrefixAndImmediatelyCommittedDiffer ==
+    /\ PrefixCommittedEntriesWithTerm # {}
+    /\ immediatelyCommitted # {}
+    /\ ~ (PrefixCommittedEntriesWithTerm \subseteq immediatelyCommitted)
+```
+
+If entries are only ever directly "immediately committed", then I believe that "prefix committed" will always be a subset of the "immediately committed" entries, so I wanted to see a trace that violated this condition.
+
+Now that I have resolved the issue with currentTerm starting too high, I am going to kick off another run on the Linux workstation.
+
+Successfully hit the invariant! I need to check the error trace to make sure it is correct, but it is 13 steps long and at first glance appears to demonstrate the issue I was after i.e. a committed entry gets rolled back on some node.
 
 
 
