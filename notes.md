@@ -363,6 +363,11 @@ Now that I have resolved the issue with currentTerm starting too high, I am goin
 
 Successfully hit the invariant! I need to check the error trace to make sure it is correct, but it is 13 steps long and at first glance appears to demonstrate the issue I was after i.e. a committed entry gets rolled back on some node.
 
+See State 6 of trace. n3 gets log entry from n2 even though currentTerm[n2]=1 which is less than currentTerm[n3]=2. This wouldn't happen in Raft because n3 would reject messages from a lower term? But I wonder if this is essential to violating `NeverRollBackCommitted` or not. Trying to run the model checker after modifying `GetEntries` to only accept log entries from someone whose term is equal or higher than your own.
+
+#### Thoughts on Abstracting the Protocol More
+When I read through traces of the algorithm, I feel like the most important bit of state is the `log` of each server. The other pieces of state feels more and more like implementation details that act to construct logs that satisfy the correct properties. I am wondering if there would be a way to write a spec at an even higher level of abstraction whose only state is the `log` itself i.e. no terms, server states, etc. The job of the algorithm/specification would be to then construct logs on each server that satisfy the necessary correctness properties. Log Matching is obviously an easy property that comes to mind that only depends on the log state. What do the other properties mean if we forget about things like the current state (i.e. Primary/Secondary) of servers? State Machine Safety doesn't seem to depend on things other than the log, though it may depend on the history of states. Leader Completeness requires that all new leaders contain any committed log entries, but this is really just to service the State Machine Safety property i.e. to make sure that we don't erase committed entries. If we only have logs and no terms, how do define an entry as being "committed"? Maybe it's easy i.e. we just say it's committed if it appears in a log slot for which no other entry ever subsequently appears. Not sure where to go with this; perhaps the simplified form of the spec is already pretty close to the minimal "essence" of the protocol.
+
 
 
 

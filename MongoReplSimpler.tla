@@ -210,6 +210,7 @@ RollbackEntries(i, j) ==
 (* log, at the time entries are sent.                                                             *)
 (**************************************************************************************************)
 GetEntries(i, j) == 
+\*  /\ currentTerm[j] >= currentTerm[i] \* (OPTIONAL, doesn't affect safety?)
     /\ state[i] = Secondary
     \* Node j must have more entries than node i.
     /\ Len(log[j]) > Len(log[i])
@@ -594,6 +595,6 @@ PrefixAndImmediatelyCommittedDiffer ==
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Feb 16 17:54:12 EST 2019 by williamschultz
+\* Last modified Sat Feb 16 23:02:02 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
