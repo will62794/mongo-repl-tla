@@ -368,6 +368,24 @@ See State 6 of trace. n3 gets log entry from n2 even though currentTerm[n2]=1 wh
 #### Thoughts on Abstracting the Protocol More
 When I read through traces of the algorithm, I feel like the most important bit of state is the `log` of each server. The other pieces of state feels more and more like implementation details that act to construct logs that satisfy the correct properties. I am wondering if there would be a way to write a spec at an even higher level of abstraction whose only state is the `log` itself i.e. no terms, server states, etc. The job of the algorithm/specification would be to then construct logs on each server that satisfy the necessary correctness properties. Log Matching is obviously an easy property that comes to mind that only depends on the log state. What do the other properties mean if we forget about things like the current state (i.e. Primary/Secondary) of servers? State Machine Safety doesn't seem to depend on things other than the log, though it may depend on the history of states. Leader Completeness requires that all new leaders contain any committed log entries, but this is really just to service the State Machine Safety property i.e. to make sure that we don't erase committed entries. If we only have logs and no terms, how do define an entry as being "committed"? Maybe it's easy i.e. we just say it's committed if it appears in a log slot for which no other entry ever subsequently appears. Not sure where to go with this; perhaps the simplified form of the spec is already pretty close to the minimal "essence" of the protocol.
 
+### Feburary 17, 2019
+
+I ran the model again but modified `GetEntries` so that nodes can only receive entries from nodes with an equal or higher term than their own. The model checking completed without finding a violation of `NeverRollBackCommitted`. This was the model with 5 nodes (no symmetry set), MaxLogLen=3 and MaxTerm=3. Found 41,115,086 distinct states. 
+
+```tla
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 8.9E-4
+  based on the actual fingerprints:  val = 1.6E-4
+439426111 states generated, 41115086 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 32.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 10 and the 95th percentile is 3).
+Finished in 07h 59min at (2019-02-17 03:41:39)
+```
+
+
+
 
 
 
