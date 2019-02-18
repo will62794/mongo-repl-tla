@@ -22,10 +22,6 @@ CONSTANTS Secondary, Candidate, Primary
 \* A reserved value.
 CONSTANTS Nil
 
-\* Message types:
-\*CONSTANTS RequestVoteRequest, RequestVoteResponse,
-\*          AppendEntriesRequest, AppendEntriesResponse
-
 (**************************************************************************************************)
 (* Global variables                                                                               *)
 (**************************************************************************************************)
@@ -36,8 +32,8 @@ CONSTANTS Nil
 \* successful elections (see BecomeLeader).
 VARIABLE elections
 
-\* A history variable used in the proof. This would not be present in an
-\* implementation. Keeps track of every log ever in the system (set of logs).
+\* A history variable. This would not be present in an implementation. Keeps track of every log ever 
+\* in the system (set of logs).
 VARIABLE allLogs
 
 \* Set of all immediately committed <<index, term>> log entry pairs.
@@ -73,21 +69,11 @@ VARIABLE log
 VARIABLE commitIndex
 logVars == <<log, commitIndex>>
 
-\* The following variables are used only on candidates:
-
-\* The set of servers from which the candidate has received a RequestVote
-\* response in its currentTerm.
-VARIABLE votesResponded
-
-\* The set of servers from which the candidate has received a vote in its
-\* currentTerm.
-VARIABLE votesGranted
-
-\* A history variable used in the proof. This would not be present in an
+\* A history variable. This would not be present in an
 \* implementation. It is a function from each server that voted for this candidate 
 \* in its currentTerm to that voter's log.
 VARIABLE voterLog
-candidateVars == <<votesResponded, votesGranted, voterLog>>
+candidateVars == <<voterLog>>
 
 leaderVars == <<elections>>
 
@@ -511,10 +497,6 @@ InitServerVars ==
     /\ state       = [i \in Server |-> Secondary]
     /\ votedFor    = [i \in Server |-> Nil]
     /\ matchEntry = [i \in Server |-> [j \in Server |-> <<-1,-1>>]]
-
-InitCandidateVars == 
-    /\ votesResponded = [i \in Server |-> {}]
-    /\ votesGranted   = [i \in Server |-> {}]
                      
 InitLogVars == 
     /\ log          = [i \in Server |-> << >>]
@@ -524,8 +506,7 @@ Init ==
     /\ InitLogVars
     /\ InitHistoryVars
     /\ InitServerVars
-    /\ InitCandidateVars
-
+    
 \* Next state predicate for history and proof variables. We (unfortunately) add it to every next-state disjunct
 \* instead of adding it as a conjunct with the entire next-state relation because it makes for clearer TLC 
 \* Toolbox error traces i.e. we can see what specific action was executed at each step of the trace. 
@@ -595,6 +576,6 @@ PrefixAndImmediatelyCommittedDiffer ==
 
 =============================================================================
 \* Modification History
-\* Last modified Sat Feb 16 23:02:02 EST 2019 by williamschultz
+\* Last modified Mon Feb 18 13:06:34 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
