@@ -26,7 +26,7 @@ CONSTANTS Nil
 (* Global variables                                                                               *)
 (**************************************************************************************************)
 
-\* A history variable used in the proof. This would not be present in an
+\* A history variable. This would not be present in an
 \* implementation. Keeps track of successful elections, including the initial logs of the
 \* leader and voters' logs. Set of functions containing various things about
 \* successful elections (see BecomeLeader).
@@ -485,29 +485,23 @@ ImmediatelyCommittedTermMatchesLogEntryTerm ==
 (**************************************************************************************************)
 (* Spec definition                                                                                *)
 (**************************************************************************************************)
-    
-InitHistoryVars == 
+ 
+Init == 
+    \* Server variables.
+    /\ currentTerm = [i \in Server |-> 0]
+    /\ state       = [i \in Server |-> Secondary]
+    /\ votedFor    = [i \in Server |-> Nil]
+    /\ matchEntry = [i \in Server |-> [j \in Server |-> <<-1,-1>>]]                     
+    \* Log variables.
+    /\ log          = [i \in Server |-> << >>]
+    /\ commitIndex  = [i \in Server |-> <<0, 0>>]
+    \* History variables
     /\ elections = {}
     /\ allLogs   = {log[i] : i \in Server}
     /\ voterLog  = [i \in Server |-> [j \in {} |-> <<>>]]
     /\ immediatelyCommitted = {}
     
-InitServerVars == 
-    /\ currentTerm = [i \in Server |-> 0]
-    /\ state       = [i \in Server |-> Secondary]
-    /\ votedFor    = [i \in Server |-> Nil]
-    /\ matchEntry = [i \in Server |-> [j \in Server |-> <<-1,-1>>]]
-                     
-InitLogVars == 
-    /\ log          = [i \in Server |-> << >>]
-    /\ commitIndex  = [i \in Server |-> <<0, 0>>]
-    
-Init == 
-    /\ InitLogVars
-    /\ InitHistoryVars
-    /\ InitServerVars
-    
-\* Next state predicate for history and proof variables. We (unfortunately) add it to every next-state disjunct
+\* Next state predicate for history variables. We (unfortunately) add it to every next-state disjunct
 \* instead of adding it as a conjunct with the entire next-state relation because it makes for clearer TLC 
 \* Toolbox error traces i.e. we can see what specific action was executed at each step of the trace. 
 HistNext == 
@@ -576,6 +570,6 @@ PrefixAndImmediatelyCommittedDiffer ==
 
 =============================================================================
 \* Modification History
-\* Last modified Mon Feb 18 13:06:34 EST 2019 by williamschultz
+\* Last modified Mon Feb 18 13:12:20 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz

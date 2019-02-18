@@ -384,7 +384,9 @@ The average outdegree of the complete state graph is 1 (minimum is 0, the maximu
 Finished in 07h 59min at (2019-02-17 03:41:39)
 ```
 
+### Feburary 18, 2019
 
+Cleaning up some of the obsolete or unused variables in the MongoReplSimpler spec. Hopefully this should make it clearer and easier to understand. It is good to always establish a baseline model before refactoring i.e. see that a spec with a given model generates a given number of states without errors, and then start refactoring and re-run the model to make sure the results haven't changed. Obviously this doesn't work for all types of refactoring, but in this case I am removing old stuff without intending to change spec behavior.
 
 
 
