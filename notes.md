@@ -441,4 +441,39 @@ Finished in 05min 35s at (2019-02-24 11:56:23)
 
 I should update `MongoReplSimpler.tla` so that learner protocol can be easily disabled.
 
+Making an attempt at a definition of `AdvanceCommitPointOmniscient`. For now, starting with having primaries advance their commit to some immediately committed log entry that exists in their current log. This rules out advancement of commit index to prefix committed log entries but I don't think that primaries should ever advance commit point directly to prefix committed entries anyway. Might need to check that though. This is a basic start, though. Next, will add a simple commit point propagation action via `GetEntries`. Secondaries receiving log entries also update their commit index to that of the sender if it is newer than their own.
+
+Verifying that secondaries can advance their commit point with simple invariant:
+
+```tla
+~(\E s \in Server : commitIndex[s][1] > 0 /\ state[s]=Secondary)
+```
+
+Better invariant i.e. verify that a secondary actually updates its commit point when it gets a new log entry:
+
+```tla
+~(\E s,t \in Server : 
+	/\ commitIndex[s][1] > 0 
+	/\ commitIndex[s]=commitIndex[t] 
+	/\ state[s]=Primary 
+	/\ state[t]=Secondary)
+```
+
+Working with slightly new definitions of learner safety:
+
+```tla
+\* Are all the entries with indices less than the current 'commitIndex' of a server 's' actually committed?
+CommitIndexSafe(s) == 
+    \A i \in DOMAIN log[s] :
+        i < commitIndex[s][1] =>
+        \E e \in CommittedEntries : <<i, log[s][i].term>> = e.entry
+
+\* Checks commit index safety on all servers.
+LearnerSafety2 == 
+    \A s \in Server :
+    CommitIndexSafe(s)
+```
+
+Trying out the `LearnerSafety2` invariant after adding commit point propagation into model. Ran the model with MaxTerm=2, MaxLogLen=2, Server={n1, n2, n3} successfully. Will try a run with 5 nodes on workstation.
+
 

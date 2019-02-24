@@ -214,7 +214,12 @@ GetEntries(i, j) ==
               newLog        == Append(log[i], newEntry) IN
               /\ log' = [log EXCEPT ![i] = newLog]
               /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), newEntry.term>>]
-    /\ UNCHANGED <<state, votedFor, currentTerm, candidateVars, leaderVars, commitIndex>>   
+    /\ commitIndex' = [commitIndex EXCEPT ![i] = 
+                        IF commitIndex[j][1] > commitIndex[i][1] 
+                            \* Advance commit index if newer.
+                            THEN commitIndex[j]
+                            ELSE commitIndex[i]]
+    /\ UNCHANGED <<state, votedFor, currentTerm, candidateVars, leaderVars>>   
     
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
@@ -292,6 +297,19 @@ AdvanceCommitPoint(i) ==
                \* index, so that we can uniquely identify a committed log prefix.
                /\ commitIndex' = [commitIndex EXCEPT ![i] = <<newCommitIndex, termOfQuorum>>]
     /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, matchEntry>>  
+
+\* Version of commit point advancement on a primary that directly inspects the global history variables. This would
+\* not be possible in a real implementation, but we can use to it test other aspects of protocol e.g. commit point 
+\* propagation, without relying on the correctness of commit point advancement rules on primary. We simply advance the
+\* commit point to the newest "committed" log entry globally.
+AdvanceCommitPointOmniscient(i) == 
+    /\ state[i] = Primary 
+    \* Advance the commit point on a primary to an immediately committed log entry that exists
+    \* in the primary's log.
+    /\ \E e \in immediatelyCommitted : 
+        /\ \E index \in DOMAIN log[i] : log[i][index].term = e.entry[2]
+        /\ commitIndex' = [commitIndex EXCEPT ![i] = e.entry]
+    /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, matchEntry>>
         
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
@@ -445,6 +463,17 @@ LearnerSafety ==
             i < commitIndex[s][1] =>
             \E c \in CommittedEntries : <<i, log[s][i].term>> = c.entry
 
+\* Are all the entries with indices less than the current 'commitIndex' of a server 's' actually committed?
+CommitIndexSafe(s) == 
+    \A i \in DOMAIN log[s] :
+        i < commitIndex[s][1] =>
+        \E e \in CommittedEntries : <<i, log[s][i].term>> = e.entry
+
+\* Checks commit index safety on all servers.
+LearnerSafety2 == 
+    \A s \in Server :
+    CommitIndexSafe(s)
+
 \*
 \* Liveness Properties (Experimental)
 \*
@@ -513,8 +542,9 @@ Next ==
     \/ \E s, t \in Server : GetEntries(s, t)                     /\ HistNext
     \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext
 \*    Optionally disable learner protocol actions.
-    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
+\*    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
 \*    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
+    \/ \E s \in Server : AdvanceCommitPointOmniscient(s)         /\ HistNext
 
 Spec == Init /\ [][Next]_vars /\ WF_vars(Next)
 
@@ -569,6 +599,6 @@ PrefixAndImmediatelyCommittedDiffer ==
 
 =============================================================================
 \* Modification History
-\* Last modified Sun Feb 24 12:01:40 EST 2019 by williamschultz
+\* Last modified Sun Feb 24 17:28:21 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
