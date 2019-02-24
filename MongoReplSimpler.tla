@@ -292,7 +292,6 @@ AdvanceCommitPoint(i) ==
                \* index, so that we can uniquely identify a committed log prefix.
                /\ commitIndex' = [commitIndex EXCEPT ![i] = <<newCommitIndex, termOfQuorum>>]
     /\ UNCHANGED << serverVars, candidateVars, leaderVars, log, matchEntry>>  
-
         
 (**************************************************************************************************)
 (* [ACTION]                                                                                       *)
@@ -514,7 +513,7 @@ Next ==
     \/ \E s, t \in Server : GetEntries(s, t)                     /\ HistNext
     \/ \E s, t \in Server : RollbackEntries(s, t)                /\ HistNext
 \*    Optionally disable learner protocol actions.
-\*    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
+    \/ \E s, t \in Server : UpdatePosition(s, t)                 /\ HistNext
 \*    \/ \E s \in Server : AdvanceCommitPoint(s)                   /\ HistNext
 
 Spec == Init /\ [][Next]_vars /\ WF_vars(Next)
@@ -570,6 +569,6 @@ PrefixAndImmediatelyCommittedDiffer ==
 
 =============================================================================
 \* Modification History
-\* Last modified Sun Feb 24 11:26:57 EST 2019 by williamschultz
+\* Last modified Sun Feb 24 12:01:40 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz

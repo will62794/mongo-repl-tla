@@ -403,6 +403,42 @@ Going to revise `BecomeLeader` in `MongoReplSimpler` so that a leader doesn't re
 
 I checked `ElectionSafety`, `LogMatching`, and `LeaderCompleteness` properties when running these models.
 
+Going to try re-enabling the learner protocol to get a sense of the state space size. Starting with MaxTerm=2, MaxLogLen=2. Starting a run on Linux workstation with both `UpdatePosition` action and `AdvanceCommitPoint` enabled. Letting this model run. I would like to initially verify that the model is actually finite. 
 
+The model has already run for ~2 minutes on my workstation. My intuition is that this is too slow. Going to try disabling the `AdvanceCommitPoint` action and only leave the `UpdatePosition` action. Starting a new run with this configuration.
+
+Another idea: to test commit point propagation rules alone, would be to have the primary just magically advance its commit point based on the global set of committed entries tracked by history variables. Then this commit point could be propagated to other nodes but we wouldn't need to be depending on the correctness of `UpdatePosition` and commit point advancement calculations. We would only be testing the commit point propagation rules i.e. not commit point advancement rules e.g.
+
+```tla
+\* Version of commit point advancement on a primary that directly inspects the global history variables. This would
+\* not be possible in a real implementation, but we can use to it test other aspects of protocol e.g. commit point 
+\* propagation, without relying on the correctness of commit point advancement rules on primary. We simply advance the
+\* commit point to the newest "committed" log entry globally.
+AdvanceCommitPointOmniscient(i) == TRUE  (* TODO *) 
+```
+
+Ok, the model run with only `UpdatePosition` action enabled completed. It was slow:
+
+`MongoReplSimpler`, with `UpdatePosition` enabled, `AdvanceCommitPoint` disabled, run on Linux workstation:
+
+- MaxTerm = 2
+- MaxLogLen = 2
+- 2,013,886 distinct states
+- Finished in 05min 35s
+- 10 TLC worker threads
+
+```tla
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.6E-6
+  based on the actual fingerprints:  val = 8.2E-7
+16992301 states generated, 2013886 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 22.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 10 and the 95th percentile is 3).
+Finished in 05min 35s at (2019-02-24 11:56:23)
+```
+
+I should update `MongoReplSimpler.tla` so that learner protocol can be easily disabled.
 
 
