@@ -388,6 +388,20 @@ Finished in 07h 59min at (2019-02-17 03:41:39)
 
 Cleaning up some of the obsolete or unused variables in the MongoReplSimpler spec. Hopefully this should make it clearer and easier to understand. It is good to always establish a baseline model before refactoring i.e. see that a spec with a given model generates a given number of states without errors, and then start refactoring and re-run the model to make sure the results haven't changed. Obviously this doesn't work for all types of refactoring, but in this case I am removing old stuff without intending to change spec behavior.
 
+### February 24, 2019
+
+Upgraded TLA+ Toolbox to nightly 1.5.8 build to work with Java 11. 
+
+Going to revise `BecomeLeader` in `MongoReplSimpler` so that a leader doesn't require the vote of *all* nodes when it runs an election. This was an oversight when originally writing this spec. The leader should be able to garner votes from any subset of eligible voters that form a quorum.
+
+ Verifying that the state space is larger with the new changes than without them i.e. there should be more possible varieties of elections when a leader can garner any quorum, not just all nodes.
+ 
+ Indeed, with the new changes, there are more distinct states. This makes sense.
+
+- Requiring all nodes to vote for leader: 1066 distinct states, MaxTerm=2, MaxLogLen=2
+- Requiring quorum of nodes to vote for leader: 2878 distinct states, MaxTerm=2, MaxLogLen=2, requiring any quorum of voters
+
+I checked `ElectionSafety`, `LogMatching`, and `LeaderCompleteness` properties when running these models.
 
 
 

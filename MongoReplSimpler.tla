@@ -226,21 +226,21 @@ GetEntries(i, j) ==
 (* simply checking if a node can become leader and then updating its state and the state of a     *)
 (* quorum of nodes who voted for it appropriately, as if a full election has occurred.            *)
 (**************************************************************************************************)
-BecomeLeader(i) == 
-    LET voters == {s \in Server : CanVoteFor(s, i)}
-        newTerm == currentTerm[i] + 1 IN
-        /\ voters \in Quorum
+BecomeLeader(i) ==
+    \E voteQuorum \in Quorum :
+        /\ i \in voteQuorum \* The new leader should vote for itself.
+        /\ \A v \in voteQuorum : CanVoteFor(v, i)
         \* Update the terms of each voter.
-        /\ currentTerm' = [s \in Server |-> IF s \in voters THEN newTerm ELSE currentTerm[s]]
-        /\ votedFor' = [s \in Server |-> IF s \in voters THEN i ELSE votedFor[s]]
+        /\ currentTerm' = [s \in Server |-> IF s \in voteQuorum THEN currentTerm[i]+1 ELSE currentTerm[s]]
+        /\ votedFor' = [s \in Server |-> IF s \in voteQuorum THEN i ELSE votedFor[s]]
         /\ state' = [s \in Server |-> 
                         IF s = i THEN Primary
-                        ELSE IF s \in voters THEN Secondary \* All voters should revert to secondary state.
+                        ELSE IF s \in voteQuorum THEN Secondary \* All voters should revert to secondary state.
                         ELSE state[s]] 
-        /\ LET election == [eterm     |-> newTerm,
+        /\ LET election == [eterm     |-> currentTerm[i]+1,
                             eleader   |-> i,
                             elog      |-> log[i],
-                            evotes    |-> voters,
+                            evotes    |-> voteQuorum,
                             evoterLog |-> voterLog[i]] IN
            elections'  = elections \cup {election}        
         /\ UNCHANGED <<logVars, candidateVars, matchEntry>>         
@@ -570,6 +570,6 @@ PrefixAndImmediatelyCommittedDiffer ==
 
 =============================================================================
 \* Modification History
-\* Last modified Mon Feb 18 13:12:20 EST 2019 by williamschultz
+\* Last modified Sun Feb 24 11:26:57 EST 2019 by williamschultz
 \* Last modified Sun Jul 29 20:32:12 EDT 2018 by willyschultz
 \* Created Mon Apr 16 20:56:44 EDT 2018 by willyschultz
