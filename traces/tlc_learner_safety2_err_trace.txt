@@ -1,0 +1,606 @@
+
+TLC2 Version 2.12 of 29 January 2018
+Running breadth-first search Model-Checking with 10 workers on 12 cores with 7143MB heap and 64MB offheap memory (Linux 4.8.0-59-generic amd64, Oracle Corporation 1.8.0_131 x86_6
+4).
+Parsing file /ssd2/mongodb/tools/tlc/mongorepl/MongoReplSimpler/MC.tla
+Parsing file /ssd2/mongodb/tools/tlc/mongorepl/MongoReplSimpler/MongoReplSimpler.tla
+Parsing file /ssd2/mongodb/tools/tlc/tla/tla2sany/StandardModules/TLC.tla
+Parsing file /ssd2/mongodb/tools/tlc/tla/tla2sany/StandardModules/Naturals.tla
+Parsing file /ssd2/mongodb/tools/tlc/tla/tla2sany/StandardModules/Integers.tla
+Parsing file /ssd2/mongodb/tools/tlc/mongorepl/MongoReplSimpler/FiniteSets.tla
+Parsing file /ssd2/mongodb/tools/tlc/tla/tla2sany/StandardModules/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module MongoReplSimpler
+Semantic processing of module MC
+Starting... (2019-02-25 08:04:39)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated.
+Progress(7) at 2019-02-25 08:04:42: 67160 states generated (67,160 s/min), 16010 distinct states found (16,010 ds/min), 11559 states left on queue.
+Progress(10) at 2019-02-25 08:05:42: 3085837 states generated (3,018,677 s/min), 503253 distinct states found (487,243 ds/min), 307521 states left on queue.
+Progress(11) at 2019-02-25 08:06:42: 5879412 states generated (2,793,575 s/min), 905141 distinct states found (401,888 ds/min), 535055 states left on queue.
+Progress(12) at 2019-02-25 08:07:42: 8651510 states generated (2,772,098 s/min), 1307013 distinct states found (401,872 ds/min), 773024 states left on queue.
+Progress(12) at 2019-02-25 08:08:42: 11273319 states generated (2,621,809 s/min), 1665696 distinct states found (358,683 ds/min), 968733 states left on queue.
+Progress(12) at 2019-02-25 08:09:42: 13873740 states generated (2,600,421 s/min), 2005325 distinct states found (339,629 ds/min), 1151357 states left on queue.
+Progress(12) at 2019-02-25 08:10:42: 16447163 states generated (2,573,423 s/min), 2353363 distinct states found (348,038 ds/min), 1341126 states left on queue.
+Progress(12) at 2019-02-25 08:11:42: 19015599 states generated (2,568,436 s/min), 2694236 distinct states found (340,873 ds/min), 1534913 states left on queue.
+Progress(12) at 2019-02-25 08:12:42: 21603820 states generated (2,588,221 s/min), 3059544 distinct states found (365,308 ds/min), 1757012 states left on queue.
+Progress(13) at 2019-02-25 08:13:42: 24100323 states generated (2,496,503 s/min), 3369872 distinct states found (310,328 ds/min), 1915413 states left on queue.
+Progress(13) at 2019-02-25 08:14:42: 26601763 states generated (2,501,440 s/min), 3688611 distinct states found (318,739 ds/min), 2086261 states left on queue.
+Progress(13) at 2019-02-25 08:15:42: 29118563 states generated (2,516,800 s/min), 4002354 distinct states found (313,743 ds/min), 2247869 states left on queue.
+Progress(13) at 2019-02-25 08:16:42: 31600453 states generated (2,481,890 s/min), 4299871 distinct states found (297,517 ds/min), 2403959 states left on queue.
+Progress(13) at 2019-02-25 08:17:42: 34076400 states generated (2,475,947 s/min), 4579162 distinct states found (279,291 ds/min), 2542676 states left on queue.
+Progress(13) at 2019-02-25 08:18:42: 36576501 states generated (2,500,101 s/min), 4895870 distinct states found (316,708 ds/min), 2704499 states left on queue.
+Progress(14) at 2019-02-25 08:19:42: 39076072 states generated (2,499,571 s/min), 5209248 distinct states found (313,378 ds/min), 2871908 states left on queue.
+Progress(14) at 2019-02-25 08:20:42: 41488071 states generated (2,411,999 s/min), 5484674 distinct states found (275,426 ds/min), 3015726 states left on queue.
+Progress(14) at 2019-02-25 08:21:43: 43867599 states generated (2,379,528 s/min), 5765053 distinct states found (280,379 ds/min), 3159286 states left on queue.
+Progress(14) at 2019-02-25 08:22:43: 46439917 states generated (2,572,318 s/min), 6111471 distinct states found (346,418 ds/min), 3375086 states left on queue.
+Progress(14) at 2019-02-25 08:23:43: 48839739 states generated (2,399,822 s/min), 6411587 distinct states found (300,116 ds/min), 3543787 states left on queue.
+Progress(14) at 2019-02-25 08:24:43: 51357828 states generated (2,518,089 s/min), 6739772 distinct states found (328,185 ds/min), 3741560 states left on queue.
+Progress(14) at 2019-02-25 08:25:43: 53839859 states generated (2,482,031 s/min), 7027661 distinct states found (287,889 ds/min), 3896487 states left on queue.
+Progress(14) at 2019-02-25 08:26:43: 56219504 states generated (2,379,645 s/min), 7329197 distinct states found (301,536 ds/min), 4052101 states left on queue.
+Progress(14) at 2019-02-25 08:27:43: 58715709 states generated (2,496,205 s/min), 7577081 distinct states found (247,884 ds/min), 4160777 states left on queue.
+Progress(14) at 2019-02-25 08:28:43: 61093528 states generated (2,377,819 s/min), 7856437 distinct states found (279,356 ds/min), 4300716 states left on queue.
+Progress(14) at 2019-02-25 08:29:43: 63488647 states generated (2,395,119 s/min), 8158086 distinct states found (301,649 ds/min), 4469221 states left on queue.
+Progress(14) at 2019-02-25 08:30:43: 65881042 states generated (2,392,395 s/min), 8459678 distinct states found (301,592 ds/min), 4622360 states left on queue.
+Progress(14) at 2019-02-25 08:31:43: 68337979 states generated (2,456,937 s/min), 8710374 distinct states found (250,696 ds/min), 4734588 states left on queue.
+Progress(14) at 2019-02-25 08:32:43: 70763787 states generated (2,425,808 s/min), 8960198 distinct states found (249,824 ds/min), 4858887 states left on queue.
+Progress(14) at 2019-02-25 08:33:43: 73130257 states generated (2,366,470 s/min), 9241833 distinct states found (281,635 ds/min), 5008388 states left on queue.
+Checkpointing of run states/19-02-25-08-04-39
+Checkpointing completed at (2019-02-25 08:34:43)
+Progress(14) at 2019-02-25 08:34:43: 75540503 states generated (2,410,246 s/min), 9488650 distinct states found (246,817 ds/min), 5126179 states left on queue.
+Progress(14) at 2019-02-25 08:35:43: 77919463 states generated (2,378,960 s/min), 9722959 distinct states found (234,309 ds/min), 5230653 states left on queue.
+Progress(14) at 2019-02-25 08:36:43: 80281927 states generated (2,362,464 s/min), 9993060 distinct states found (270,101 ds/min), 5363563 states left on queue.
+Progress(14) at 2019-02-25 08:37:43: 82763879 states generated (2,481,952 s/min), 10245897 distinct states found (252,837 ds/min), 5471716 states left on queue.
+Progress(14) at 2019-02-25 08:38:43: 85115895 states generated (2,352,016 s/min), 10541150 distinct states found (295,253 ds/min), 5626778 states left on queue.
+Progress(14) at 2019-02-25 08:39:43: 87488860 states generated (2,372,965 s/min), 10851957 distinct states found (310,807 ds/min), 5797397 states left on queue.
+Progress(15) at 2019-02-25 08:40:43: 89965660 states generated (2,476,800 s/min), 11104240 distinct states found (252,283 ds/min), 5915648 states left on queue.
+Progress(15) at 2019-02-25 08:41:43: 92265012 states generated (2,299,352 s/min), 11340784 distinct states found (236,544 ds/min), 6033922 states left on queue.
+Progress(15) at 2019-02-25 08:42:43: 94611695 states generated (2,346,683 s/min), 11583493 distinct states found (242,709 ds/min), 6154754 states left on queue.
+Progress(15) at 2019-02-25 08:43:43: 96950012 states generated (2,338,317 s/min), 11804024 distinct states found (220,531 ds/min), 6247201 states left on queue.
+Progress(15) at 2019-02-25 08:44:43: 99264198 states generated (2,314,186 s/min), 12041137 distinct states found (237,113 ds/min), 6359176 states left on queue.
+Progress(15) at 2019-02-25 08:45:43: 101645413 states generated (2,381,215 s/min), 12374654 distinct states found (333,517 ds/min), 6566178 states left on queue.
+Progress(15) at 2019-02-25 08:46:43: 104222077 states generated (2,576,664 s/min), 12668513 distinct states found (293,859 ds/min), 6739588 states left on queue.
+Progress(15) at 2019-02-25 08:47:43: 106613306 states generated (2,391,229 s/min), 12949223 distinct states found (280,710 ds/min), 6902475 states left on queue.
+Progress(15) at 2019-02-25 08:48:43: 108969251 states generated (2,355,945 s/min), 13174145 distinct states found (224,922 ds/min), 7006140 states left on queue.
+Progress(15) at 2019-02-25 08:49:43: 111244806 states generated (2,275,555 s/min), 13412674 distinct states found (238,529 ds/min), 7123148 states left on queue.
+Progress(15) at 2019-02-25 08:50:43: 113631635 states generated (2,386,829 s/min), 13755854 distinct states found (343,180 ds/min), 7343558 states left on queue.
+Progress(15) at 2019-02-25 08:51:43: 116201412 states generated (2,569,777 s/min), 14043600 distinct states found (287,746 ds/min), 7510534 states left on queue.
+Progress(15) at 2019-02-25 08:52:43: 118605698 states generated (2,404,286 s/min), 14305536 distinct states found (261,936 ds/min), 7650691 states left on queue.
+Progress(15) at 2019-02-25 08:53:43: 120845851 states generated (2,240,153 s/min), 14581442 distinct states found (275,906 ds/min), 7808116 states left on queue.
+Progress(15) at 2019-02-25 08:54:43: 123233213 states generated (2,387,362 s/min), 14837173 distinct states found (255,731 ds/min), 7948847 states left on queue.
+Progress(15) at 2019-02-25 08:55:43: 125573510 states generated (2,340,297 s/min), 15059573 distinct states found (222,400 ds/min), 8048124 states left on queue.
+Progress(15) at 2019-02-25 08:56:43: 127868996 states generated (2,295,486 s/min), 15271049 distinct states found (211,476 ds/min), 8133637 states left on queue.
+Progress(15) at 2019-02-25 08:57:43: 130197602 states generated (2,328,606 s/min), 15589115 distinct states found (318,066 ds/min), 8302941 states left on queue.
+Error: Invariant LearnerSafety2 is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ elections = {}
+/\ log = (n1 :> <<>> @@ n2 :> <<>> @@ n3 :> <<>> @@ n4 :> <<>> @@ n5 :> <<>>)
+/\ state = ( n1 :> Secondary @@
+  n2 :> Secondary @@
+  n3 :> Secondary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = {<<>>}
+/\ immediatelyCommitted = {}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<0, 0>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<0, 0>> )
+/\ currentTerm = (n1 :> 0 @@ n2 :> 0 @@ n3 :> 0 @@ n4 :> 0 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> Nil @@ n2 :> Nil @@ n3 :> Nil @@ n4 :> Nil @@ n5 :> Nil)
+
+State 2: <Next line 540, col 26 to line 540, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ] }
+/\ log = (n1 :> <<>> @@ n2 :> <<>> @@ n3 :> <<>> @@ n4 :> <<>> @@ n5 :> <<>>)
+/\ state = ( n1 :> Primary @@
+  n2 :> Secondary @@
+  n3 :> Secondary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = {<<>>}
+/\ immediatelyCommitted = {}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<0, 0>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<0, 0>> )
+/\ currentTerm = (n1 :> 1 @@ n2 :> 1 @@ n3 :> 1 @@ n4 :> 0 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n1 @@ n2 :> n1 @@ n3 :> n1 @@ n4 :> Nil @@ n5 :> Nil)
+
+State 3: <Next line 540, col 26 to line 540, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ],
+  [ eterm |-> 2,
+    eleader |-> n2,
+    elog |-> <<>>,
+    evotes |-> {n2, n3, n4},
+    evoterLog |-> << >> ] }
+/\ log = (n1 :> <<>> @@ n2 :> <<>> @@ n3 :> <<>> @@ n4 :> <<>> @@ n5 :> <<>>)
+/\ state = ( n1 :> Primary @@
+  n2 :> Primary @@
+  n3 :> Secondary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = {<<>>}
+/\ immediatelyCommitted = {}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<0, 0>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<0, 0>> )
+/\ currentTerm = (n1 :> 1 @@ n2 :> 2 @@ n3 :> 2 @@ n4 :> 2 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n1 @@ n2 :> n2 @@ n3 :> n2 @@ n4 :> n2 @@ n5 :> Nil)
+
+State 4: <Next line 541, col 43 to line 541, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ],
+  [ eterm |-> 2,
+    eleader |-> n2,
+    elog |-> <<>>,
+    evotes |-> {n2, n3, n4},
+    evoterLog |-> << >> ] }
+/\ log = ( n1 :> <<[term |-> 1, value |-> v1]>> @@
+  n2 :> <<>> @@
+  n3 :> <<>> @@
+  n4 :> <<>> @@
+  n5 :> <<>> )
+/\ state = ( n1 :> Primary @@
+  n2 :> Primary @@
+  n3 :> Secondary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = {<<>>}
+/\ immediatelyCommitted = {}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<0, 0>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<0, 0>> )
+/\ currentTerm = (n1 :> 1 @@ n2 :> 2 @@ n3 :> 2 @@ n4 :> 2 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n1 @@ n2 :> n2 @@ n3 :> n2 @@ n4 :> n2 @@ n5 :> Nil)
+
+State 5: <Next line 541, col 43 to line 541, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ],
+  [ eterm |-> 2,
+    eleader |-> n2,
+    elog |-> <<>>,
+    evotes |-> {n2, n3, n4},
+    evoterLog |-> << >> ] }
+/\ log = ( n1 :> <<[term |-> 1, value |-> v1]>> @@
+  n2 :> <<[term |-> 2, value |-> v1]>> @@
+  n3 :> <<>> @@
+  n4 :> <<>> @@
+  n5 :> <<>> )
+/\ state = ( n1 :> Primary @@
+  n2 :> Primary @@
+  n3 :> Secondary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = {<<>>, <<[term |-> 1, value |-> v1]>>}
+/\ immediatelyCommitted = {}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<0, 0>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<0, 0>> )
+/\ currentTerm = (n1 :> 1 @@ n2 :> 2 @@ n3 :> 2 @@ n4 :> 2 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n1 @@ n2 :> n2 @@ n3 :> n2 @@ n4 :> n2 @@ n5 :> Nil)
+
+State 6: <Next line 542, col 29 to line 542, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ],
+  [ eterm |-> 2,
+    eleader |-> n2,
+    elog |-> <<>>,
+    evotes |-> {n2, n3, n4},
+    evoterLog |-> << >> ] }
+/\ log = ( n1 :> <<[term |-> 1, value |-> v1]>> @@
+  n2 :> <<[term |-> 2, value |-> v1]>> @@
+  n3 :> <<[term |-> 1, value |-> v1]>> @@
+  n4 :> <<>> @@
+  n5 :> <<>> )
+/\ state = ( n1 :> Primary @@
+  n2 :> Primary @@
+  n3 :> Secondary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = {<<>>, <<[term |-> 1, value |-> v1]>>, <<[term |-> 2, value |-> v1]>>}
+/\ immediatelyCommitted = {}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<0, 0>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<0, 0>> )
+/\ currentTerm = (n1 :> 1 @@ n2 :> 2 @@ n3 :> 2 @@ n4 :> 2 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n1 @@ n2 :> n2 @@ n3 :> n2 @@ n4 :> n2 @@ n5 :> Nil)
+
+State 7: <Next line 540, col 26 to line 540, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ],
+  [ eterm |-> 2,
+    eleader |-> n2,
+    elog |-> <<>>,
+    evotes |-> {n2, n3, n4},
+    evoterLog |-> << >> ],
+  [ eterm |-> 3,
+    eleader |-> n3,
+    elog |-> <<[term |-> 1, value |-> v1]>>,
+    evotes |-> {n1, n3, n4},
+    evoterLog |-> << >> ] }
+/\ log = ( 
+  n1 :> <<[term |-> 1, value |-> v1]>> @@
+  n2 :> <<[term |-> 2, value |-> v1]>> @@
+  n3 :> <<[term |-> 1, value |-> v1]>> @@
+  n4 :> <<>> @@
+  n5 :> <<>> )
+/\ state = ( n1 :> Secondary @@
+  n2 :> Primary @@
+  n3 :> Primary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = {<<>>, <<[term |-> 1, value |-> v1]>>, <<[term |-> 2, value |-> v1]>>}
+/\ immediatelyCommitted = {}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<0, 0>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<0, 0>> )
+/\ currentTerm = (n1 :> 3 @@ n2 :> 2 @@ n3 :> 3 @@ n4 :> 3 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n3 @@ n2 :> n2 @@ n3 :> n3 @@ n4 :> n3 @@ n5 :> Nil)
+
+State 8: <Next line 541, col 43 to line 541, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ],
+  [ eterm |-> 2,
+    eleader |-> n2,
+    elog |-> <<>>,
+    evotes |-> {n2, n3, n4},
+    evoterLog |-> << >> ],
+  [ eterm |-> 3,
+    eleader |-> n3,
+    elog |-> <<[term |-> 1, value |-> v1]>>,
+    evotes |-> {n1, n3, n4},
+    evoterLog |-> << >> ] }
+/\ log = ( 
+  n1 :> <<[term |-> 1, value |-> v1]>> @@
+  n2 :> <<[term |-> 2, value |-> v1]>> @@
+  n3 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n4 :> <<>> @@
+  n5 :> <<>> )
+/\ state = ( n1 :> Secondary @@
+  n2 :> Primary @@
+  n3 :> Primary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = {<<>>, <<[term |-> 1, value |-> v1]>>, <<[term |-> 2, value |-> v1]>>}
+/\ immediatelyCommitted = {}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<0, 0>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<0, 0>> )
+/\ currentTerm = (n1 :> 3 @@ n2 :> 2 @@ n3 :> 3 @@ n4 :> 3 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n3 @@ n2 :> n2 @@ n3 :> n3 @@ n4 :> n3 @@ n5 :> Nil)
+
+State 9: <Next line 542, col 29 to line 542, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ],
+  [ eterm |-> 2,
+    eleader |-> n2,
+    elog |-> <<>>,
+    evotes |-> {n2, n3, n4},
+    evoterLog |-> << >> ],
+  [ eterm |-> 3,
+    eleader |-> n3,
+    elog |-> <<[term |-> 1, value |-> v1]>>,
+    evotes |-> {n1, n3, n4},
+    evoterLog |-> << >> ] }
+/\ log = ( 
+  n1 :> <<[term |-> 1, value |-> v1]>> @@
+  n2 :> <<[term |-> 2, value |-> v1]>> @@
+  n3 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n4 :> <<[term |-> 1, value |-> v1]>> @@
+  n5 :> <<>> )
+/\ state = ( n1 :> Secondary @@
+  n2 :> Primary @@
+  n3 :> Primary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = { <<>>,
+  <<[term |-> 1, value |-> v1]>>,
+  <<[term |-> 2, value |-> v1]>>,
+  <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> }
+/\ immediatelyCommitted = {}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<0, 0>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<0, 0>> )
+/\ currentTerm = (n1 :> 3 @@ n2 :> 2 @@ n3 :> 3 @@ n4 :> 3 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n3 @@ n2 :> n2 @@ n3 :> n3 @@ n4 :> n3 @@ n5 :> Nil)
+
+State 10: <Next line 542, col 29 to line 542, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ],
+  [ eterm |-> 2,
+    eleader |-> n2,
+    elog |-> <<>>,
+    evotes |-> {n2, n3, n4},
+    evoterLog |-> << >> ],
+  [ eterm |-> 3,
+    eleader |-> n3,
+    elog |-> <<[term |-> 1, value |-> v1]>>,
+    evotes |-> {n1, n3, n4},
+    evoterLog |-> << >> ] }
+/\ log = ( n1 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n2 :> <<[term |-> 2, value |-> v1]>> @@
+  n3 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n4 :> <<[term |-> 1, value |-> v1]>> @@
+  n5 :> <<>> )
+/\ state = ( n1 :> Secondary @@
+  n2 :> Primary @@
+  n3 :> Primary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = { <<>>,
+  <<[term |-> 1, value |-> v1]>>,
+  <<[term |-> 2, value |-> v1]>>,
+  <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> }
+/\ immediatelyCommitted = {}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<0, 0>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<0, 0>> )
+/\ currentTerm = (n1 :> 3 @@ n2 :> 2 @@ n3 :> 3 @@ n4 :> 3 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n3 @@ n2 :> n2 @@ n3 :> n3 @@ n4 :> n3 @@ n5 :> Nil)
+
+State 11: <Next line 542, col 29 to line 542, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ],
+  [ eterm |-> 2,
+    eleader |-> n2,
+    elog |-> <<>>,
+    evotes |-> {n2, n3, n4},
+    evoterLog |-> << >> ],
+  [ eterm |-> 3,
+    eleader |-> n3,
+    elog |-> <<[term |-> 1, value |-> v1]>>,
+    evotes |-> {n1, n3, n4},
+    evoterLog |-> << >> ] }
+/\ log = ( n1 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n2 :> <<[term |-> 2, value |-> v1]>> @@
+  n3 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n4 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n5 :> <<>> )
+/\ state = ( n1 :> Secondary @@
+  n2 :> Primary @@
+  n3 :> Primary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = { <<>>,
+  <<[term |-> 1, value |-> v1]>>,
+  <<[term |-> 2, value |-> v1]>>,
+  <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> }
+/\ immediatelyCommitted = {[term |-> 3, entry |-> <<2, 3>>]}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<0, 0>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<0, 0>> )
+/\ currentTerm = (n1 :> 3 @@ n2 :> 2 @@ n3 :> 3 @@ n4 :> 3 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n3 @@ n2 :> n2 @@ n3 :> n3 @@ n4 :> n3 @@ n5 :> Nil)
+
+State 12: <Next line 547, col 26 to line 547, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ],
+  [ eterm |-> 2,
+    eleader |-> n2,
+    elog |-> <<>>,
+    evotes |-> {n2, n3, n4},
+    evoterLog |-> << >> ],
+  [ eterm |-> 3,
+    eleader |-> n3,
+    elog |-> <<[term |-> 1, value |-> v1]>>,
+    evotes |-> {n1, n3, n4},
+    evoterLog |-> << >> ] }
+/\ log = ( n1 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n2 :> <<[term |-> 2, value |-> v1]>> @@
+  n3 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n4 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n5 :> <<>> )
+/\ state = ( n1 :> Secondary @@
+  n2 :> Primary @@
+  n3 :> Primary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = { <<>>,
+  <<[term |-> 1, value |-> v1]>>,
+  <<[term |-> 2, value |-> v1]>>,
+  <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> }
+/\ immediatelyCommitted = {[term |-> 3, entry |-> <<2, 3>>]}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<2, 3>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<0, 0>> )
+/\ currentTerm = (n1 :> 3 @@ n2 :> 2 @@ n3 :> 3 @@ n4 :> 3 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n3 @@ n2 :> n2 @@ n3 :> n3 @@ n4 :> n3 @@ n5 :> Nil)
+
+State 13: <Next line 542, col 29 to line 542, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ],
+  [ eterm |-> 2,
+    eleader |-> n2,
+    elog |-> <<>>,
+    evotes |-> {n2, n3, n4},
+    evoterLog |-> << >> ],
+  [ eterm |-> 3,
+    eleader |-> n3,
+    elog |-> <<[term |-> 1, value |-> v1]>>,
+    evotes |-> {n1, n3, n4},
+    evoterLog |-> << >> ] }
+/\ log = ( n1 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n2 :> <<[term |-> 2, value |-> v1]>> @@
+  n3 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n4 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n5 :> <<[term |-> 1, value |-> v1]>> )
+/\ state = ( n1 :> Secondary @@
+  n2 :> Primary @@
+  n3 :> Primary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = { <<>>,
+  <<[term |-> 1, value |-> v1]>>,
+  <<[term |-> 2, value |-> v1]>>,
+  <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> }
+/\ immediatelyCommitted = {[term |-> 3, entry |-> <<2, 3>>]}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<2, 3>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<2, 3>> )
+/\ currentTerm = (n1 :> 3 @@ n2 :> 2 @@ n3 :> 3 @@ n4 :> 3 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n3 @@ n2 :> n2 @@ n3 :> n3 @@ n4 :> n3 @@ n5 :> Nil)
+
+State 14: <Next line 543, col 29 to line 543, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ],
+  [ eterm |-> 2,
+    eleader |-> n2,
+    elog |-> <<>>,
+    evotes |-> {n2, n3, n4},
+    evoterLog |-> << >> ],
+  [ eterm |-> 3,
+    eleader |-> n3,
+    elog |-> <<[term |-> 1, value |-> v1]>>,
+    evotes |-> {n1, n3, n4},
+    evoterLog |-> << >> ] }
+/\ log = ( n1 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n2 :> <<[term |-> 2, value |-> v1]>> @@
+  n3 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n4 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n5 :> <<>> )
+/\ state = ( n1 :> Secondary @@
+  n2 :> Primary @@
+  n3 :> Primary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = { <<>>,
+  <<[term |-> 1, value |-> v1]>>,
+  <<[term |-> 2, value |-> v1]>>,
+  <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> }
+/\ immediatelyCommitted = {[term |-> 3, entry |-> <<2, 3>>]}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<2, 3>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<2, 3>> )
+/\ currentTerm = (n1 :> 3 @@ n2 :> 2 @@ n3 :> 3 @@ n4 :> 3 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n3 @@ n2 :> n2 @@ n3 :> n3 @@ n4 :> n3 @@ n5 :> Nil)
+
+State 15: <Next line 542, col 29 to line 542, col 76 of module MongoReplSimpler>
+/\ elections = { [ eterm |-> 1,
+    eleader |-> n1,
+    elog |-> <<>>,
+    evotes |-> {n1, n2, n3},
+    evoterLog |-> << >> ],
+  [ eterm |-> 2,
+    eleader |-> n2,
+    elog |-> <<>>,
+    evotes |-> {n2, n3, n4},
+    evoterLog |-> << >> ],
+  [ eterm |-> 3,
+    eleader |-> n3,
+    elog |-> <<[term |-> 1, value |-> v1]>>,
+    evotes |-> {n1, n3, n4},
+    evoterLog |-> << >> ] }
+/\ log = ( n1 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n2 :> <<[term |-> 2, value |-> v1]>> @@
+  n3 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n4 :> <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> @@
+  n5 :> <<[term |-> 2, value |-> v1]>> )
+/\ state = ( n1 :> Secondary @@
+  n2 :> Primary @@
+  n3 :> Primary @@
+  n4 :> Secondary @@
+  n5 :> Secondary )
+/\ allLogs = { <<>>,
+  <<[term |-> 1, value |-> v1]>>,
+  <<[term |-> 2, value |-> v1]>>,
+  <<[term |-> 1, value |-> v1], [term |-> 3, value |-> v1]>> }
+/\ immediatelyCommitted = {[term |-> 3, entry |-> <<2, 3>>]}
+/\ commitIndex = ( n1 :> <<0, 0>> @@
+  n2 :> <<0, 0>> @@
+  n3 :> <<2, 3>> @@
+  n4 :> <<0, 0>> @@
+  n5 :> <<2, 3>> )
+/\ currentTerm = (n1 :> 3 @@ n2 :> 2 @@ n3 :> 3 @@ n4 :> 3 @@ n5 :> 0)
+/\ voterLog = (n1 :> << >> @@ n2 :> << >> @@ n3 :> << >> @@ n4 :> << >> @@ n5 :> << >>)
+/\ votedFor = (n1 :> n3 @@ n2 :> n2 @@ n3 :> n3 @@ n4 :> n3 @@ n5 :> Nil)
+
+130290406 states generated, 15600339 distinct states found, 8308212 states left on queue.
+The depth of the complete state graph search is 15.
+The average outdegree of the complete state graph is 2 (minimum is 0, the maximum 31 and the 95th percentile is 6).
+Finished in 53min 06s at (2019-02-25 08:57:46)
