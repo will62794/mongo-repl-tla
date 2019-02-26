@@ -361,7 +361,7 @@ If entries are only ever directly "immediately committed", then I believe that "
 
 Now that I have resolved the issue with currentTerm starting too high, I am going to kick off another run on the Linux workstation.
 
-Successfully hit the invariant! I need to check the error trace to make sure it is correct, but it is 13 steps long and at first glance appears to demonstrate the issue I was after i.e. a committed entry gets rolled back on some node.
+Successfully hit the invariant! [This](https://github.com/will62794/mongo-repl-tla/blob/0e5949bfac05d9fac7276ad43c0dbd58463e42b3/traces/tlc_err_trace_never_rollback_committed.txt) is the trace. I need to check the error trace to make sure it is correct, but it is 13 steps long and at first glance appears to demonstrate the issue I was after i.e. a committed entry gets rolled back on some node.
 
 See State 6 of trace. n3 gets log entry from n2 even though currentTerm[n2]=1 which is less than currentTerm[n3]=2. This wouldn't happen in Raft because n3 would reject messages from a lower term? But I wonder if this is essential to violating `NeverRollBackCommitted` or not. Trying to run the model checker after modifying `GetEntries` to only accept log entries from someone whose term is equal or higher than your own.
 
@@ -474,6 +474,6 @@ LearnerSafety2 ==
     CommitIndexSafe(s)
 ```
 
-Trying out the `LearnerSafety2` invariant after adding commit point propagation into model. Ran the model with MaxTerm=2, MaxLogLen=2, Server={n1, n2, n3} successfully. Will try a run with 5 nodes on workstation.
+Trying out the `LearnerSafety2` invariant after adding commit point propagation into model. Ran the model with MaxTerm=2, MaxLogLen=2, Server={n1, n2, n3} successfully. Will try a run with 5 nodes on workstation. Found a violation of `LearnerSafety2` after checking back on the model run. The [trace](https://github.com/will62794/mongo-repl-tla/blob/0e5949bfac05d9fac7276ad43c0dbd58463e42b3/traces/tlc_learner_safety2_err_trace.txt) is 15 steps long and took ~53 minutes to generate.
 
 
