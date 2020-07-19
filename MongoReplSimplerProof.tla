@@ -243,10 +243,10 @@ BecomeLeader(i) ==
                         ELSE IF s \in voteQuorum THEN Secondary \* All voters should revert to secondary state.
                         ELSE state[s]] 
         /\ LET election == [eterm     |-> currentTerm[i]+1,
-                            eleader   |-> i,
-                            elog      |-> log[i],
-                            evotes    |-> voteQuorum,
-                            evoterLog |-> voterLog[i]] IN
+                            eleader   |-> i] IN
+                            \*elog      |-> log[i],
+                            \*evotes    |-> voteQuorum,
+                            \*evoterLog |-> voterLog[i]] IN
            elections'  = elections \cup {election}        
         /\ UNCHANGED <<logVars, candidateVars, matchEntry>>         
   
@@ -318,8 +318,7 @@ AdvanceCommitPointOmniscient(i) ==
 (**************************************************************************************************)        
 ClientRequest(i, v) == 
     /\ state[i] = Primary
-    /\ LET entry == [term  |-> currentTerm[i],
-                     value |-> v]
+    /\ LET entry == [term  |-> currentTerm[i]]
        newLog == Append(log[i], entry) IN
        /\ log' = [log EXCEPT ![i] = newLog]
        /\ matchEntry' = [matchEntry EXCEPT ![i][i] = <<Len(newLog), entry.term>>]
@@ -566,14 +565,14 @@ LogLenInvariant ==  \A s \in Server  : Len(log[s]) <= MaxLogLen
 
 SpecSafety == Init /\ [][Next]_vars
 
-ASSUME ServerNat == Server \in Nat
+\*ASSUME ServerNat == Server \in Nat
 
-LogType == Seq([term : Nat, value: Value])
+LogType == Seq([term : Nat])
 ElectionType == [   eterm     : Nat,
-                    eleader   : Nat,
-                    elog      : LogType,
-                    evotes    : SUBSET Server,
-                    evoterLog : LogType]
+                    eleader   : Server]
+\*                    elog      : LogType,
+\*                    evotes    : SUBSET Server,
+\*                    evoterLog : LogType]
 
 TypeOK == 
     /\ log \in [Server -> LogType]
@@ -595,7 +594,63 @@ THEOREM SpecSafety => []ElectionSafety
     BY DEF Init, ElectionSafetyInv, ElectionSafety, TypeOK, ElectionType, LogType
 \* Inductive step.
 <1>2. ElectionSafetyInv /\ [Next]_vars => ElectionSafetyInv'
-    BY DEF ElectionSafetyInv, ElectionSafety, Next, TypeOK, ElectionType, LogType
+  <2>1. ASSUME ElectionSafetyInv,
+               NEW s \in Server,
+               BecomeLeader(s)                         /\ HistNext
+        PROVE  ElectionSafetyInv'
+    BY <2>1 DEF ElectionSafetyInv, ElectionSafety, Next, TypeOK, ElectionType, LogType
+  <2>2. ASSUME ElectionSafetyInv,
+               NEW s \in Server,
+               NEW v \in Value,
+               ClientRequest(s, v)    /\ HistNext
+        PROVE  ElectionSafetyInv'
+    <3>1. TypeOK'
+      <4>1. (log \in [Server -> LogType])'
+        BY <2>2 DEF ElectionSafetyInv, ElectionSafety, Next, TypeOK, 
+                    ElectionType, LogType, ClientRequest, HistNext, serverVars,
+                    candidateVars, leaderVars, AllImmediatelyCommitted, Append
+      <4>2. (elections \in SUBSET ElectionType)'
+        BY <2>2 DEF ElectionSafetyInv, ElectionSafety, Next, TypeOK, 
+                    ElectionType, LogType, ClientRequest, HistNext, serverVars,
+                    candidateVars, leaderVars, AllImmediatelyCommitted
+      <4>3. (state \in [Server -> {Secondary, Candidate, Primary}])'
+        BY <2>2 DEF ElectionSafetyInv, ElectionSafety, Next, TypeOK, 
+                    ElectionType, LogType, ClientRequest, HistNext, serverVars,
+                    candidateVars, leaderVars, AllImmediatelyCommitted
+      <4>4. QED
+        BY <4>1, <4>2, <4>3 DEF TypeOK
+      
+    <3>2. ElectionSafety'
+      BY <2>2 DEF ElectionSafetyInv, ElectionSafety, Next, TypeOK, 
+                  ElectionType, LogType, ClientRequest, HistNext, serverVars,
+                  candidateVars, leaderVars, AllImmediatelyCommitted
+    <3>3. QED
+      BY <3>1, <3>2 DEF ElectionSafetyInv
+    
+  <2>3. ASSUME ElectionSafetyInv,
+               NEW s \in Server,
+               NEW t \in Server,
+               GetEntries(s, t)                     /\ HistNext
+        PROVE  ElectionSafetyInv'
+    BY <2>3 DEF ElectionSafetyInv, ElectionSafety, Next, TypeOK, ElectionType, LogType
+  <2>4. ASSUME ElectionSafetyInv,
+               NEW s \in Server,
+               NEW t \in Server,
+               RollbackEntries(s, t)                /\ HistNext
+        PROVE  ElectionSafetyInv'
+    BY <2>4 DEF ElectionSafetyInv, ElectionSafety, Next, TypeOK, ElectionType, LogType
+  <2>5. ASSUME ElectionSafetyInv,
+               NEW s \in Server,
+               AdvanceCommitPointOmniscient(s)         /\ HistNext
+        PROVE  ElectionSafetyInv'
+    BY <2>5 DEF ElectionSafetyInv, ElectionSafety, Next, TypeOK, ElectionType, LogType
+  <2>6. ASSUME ElectionSafetyInv,
+               UNCHANGED vars
+        PROVE  ElectionSafetyInv'
+    BY <2>6 DEF ElectionSafetyInv, ElectionSafety, Next, TypeOK, ElectionType, LogType
+  <2>7. QED
+    BY <2>1, <2>2, <2>3, <2>4, <2>5, <2>6 DEF Next
+    
 \* The inductive invariant should imply the real invariant.
 <1>3. ElectionSafetyInv => ElectionSafety
     BY DEF ElectionSafetyInv, ElectionSafety, TypeOK
