@@ -1,4 +1,5 @@
 *.toolbox
+*.tlaps
 latex/
 .DS_Store
 *.pdf
